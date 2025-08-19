@@ -15,7 +15,7 @@ import {
   Package
 } from 'lucide-react'
 
-function MetricsPanel({ data }) {
+function MetricsPanel({ data, className = '' }) {
   const complexityChartRef = useRef()
   const filesizeChartRef = useRef()
   const dependencyChartRef = useRef()
@@ -289,7 +289,7 @@ function MetricsPanel({ data }) {
   }
 
   return (
-    <div className="h-full overflow-y-auto space-y-6">
+    <div className={`h-full overflow-y-auto space-y-6 ${className}`}>
       {/* Overview Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="metric-card group">

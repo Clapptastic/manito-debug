@@ -905,7 +905,13 @@ function SettingsModal({ isOpen, onClose, healthData, isConnected }) {
                 <div>
                   <span className="text-sm text-gray-400">Cache Hit Rate:</span>
                   <span className="text-sm text-gray-200 ml-2">
-                    {Math.round(healthData.services.database.cache.hitRate || 0)}%
+                    {(() => {
+                      const hitRate = healthData.services.database.cache.hitRate;
+                      if (hitRate === null || hitRate === undefined || isNaN(hitRate)) {
+                        return '0%';
+                      }
+                      return `${Math.round(hitRate)}%`;
+                    })()}
                   </span>
                 </div>
               )}

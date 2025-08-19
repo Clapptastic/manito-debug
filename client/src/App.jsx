@@ -25,6 +25,7 @@ import { SettingsProvider } from './contexts/SettingsContext'
 import { ScanningLoader, LoadingOverlay } from './components/Loading'
 import ProgressTracker from './components/ProgressTracker'
 import Tooltip from './components/Tooltip'
+import EnhancedFilesTab from './components/EnhancedFilesTab'
 import useWebSocket from './hooks/useWebSocket'
 import { useUserFeedback, handleErrorWithFeedback, handleSuccessWithFeedback } from './utils/userFeedback'
 import dynamicPortConfig from './utils/portConfig.js';
@@ -330,7 +331,7 @@ function AppContent() {
       })
       
       // Start upload
-      xhr.open('POST', `http://localhost:${portConfig.server}/api/upload`)
+      xhr.open('POST', `/api/upload`)
       xhr.timeout = 300000 // 5 minutes timeout
       xhr.send(formData)
       
@@ -408,7 +409,7 @@ function AppContent() {
       setScanStage('analyzing')
       setScanProgress({ stage: 'analyzing', progress: 30, files: directoryData.files.length })
       
-      const response = await fetch(`http://localhost:${portConfig.server}/api/upload-directory`, {
+      const response = await fetch(`/api/upload-directory`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -543,34 +544,7 @@ function AppContent() {
                   />
                 )}
                 {selectedTab === 'files' && (
-                  <div className="h-full overflow-auto p-6">
-                    <h2 className="text-xl font-semibold text-white mb-4">Files Analysis</h2>
-                    <div className="grid gap-4">
-                      {scanResults.files?.map((file, index) => (
-                        <div key={index} className="bg-gray-800 rounded-lg p-4 border border-gray-700">
-                          <h3 className="text-lg font-medium text-white mb-2">{file.filePath}</h3>
-                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                            <div>
-                              <span className="text-gray-400">Lines:</span>
-                              <span className="text-white ml-2">{file.lines}</span>
-                            </div>
-                            <div>
-                              <span className="text-gray-400">Size:</span>
-                              <span className="text-white ml-2">{file.size} bytes</span>
-                            </div>
-                            <div>
-                              <span className="text-gray-400">Complexity:</span>
-                              <span className="text-white ml-2">{file.complexity}</span>
-                            </div>
-                            <div>
-                              <span className="text-gray-400">Functions:</span>
-                              <span className="text-white ml-2">{file.functions?.length || 0}</span>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
+                  <EnhancedFilesTab files={scanResults.files} />
                 )}
               </div>
             </div>

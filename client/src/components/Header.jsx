@@ -8,6 +8,11 @@ import {
 import Tooltip, { StatusTooltip, HelpTooltip, KeyboardTooltip } from './Tooltip'
 import { useToast } from './Toast'
 import StatusIndicators from './StatusIndicators'
+import GlobalSearch from './GlobalSearch'
+import ProjectManager from './ProjectManager'
+import ScanQueueDashboard from './ScanQueueDashboard'
+import SystemMetricsDashboard from './SystemMetricsDashboard'
+import AIProviderConfig from './AIProviderConfig'
 
 const Header = ({ isConnected, healthData, onToggleAI, onOpenSettings }) => {
   const toast = useToast()
@@ -31,6 +36,31 @@ const Header = ({ isConnected, healthData, onToggleAI, onOpenSettings }) => {
 
         {/* Right side - Controls and stats */}
         <div className="flex items-center space-x-4">
+          {/* Project Manager */}
+          <ProjectManager 
+            onProjectSelect={(project) => {
+              console.log('Project selected:', project);
+              // TODO: Handle project selection
+            }}
+          />
+
+          {/* Scan Queue Dashboard */}
+          <ScanQueueDashboard />
+
+          {/* System Metrics Dashboard */}
+          <SystemMetricsDashboard />
+
+          {/* AI Provider Configuration */}
+          <AIProviderConfig />
+
+          {/* Global Search */}
+          <GlobalSearch 
+            onResultSelect={(result) => {
+              console.log('Search result selected:', result);
+              // TODO: Handle search result selection
+            }}
+          />
+
           {/* AI Toggle Button */}
           <KeyboardTooltip shortcut="Alt+A" description="Toggle AI Assistant">
             <button

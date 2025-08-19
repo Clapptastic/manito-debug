@@ -8,8 +8,7 @@ import {
   Wifi, 
   WifiOff,
   Activity,
-  HardDrive,
-  Zap
+  HardDrive
 } from 'lucide-react';
 import Tooltip from './Tooltip';
 
@@ -67,9 +66,7 @@ const StatusIndicators = ({ healthData, isConnected }) => {
     return `${mb}MB`;
   };
 
-  const formatCacheHitRate = (hitRate) => {
-    return `${Math.round(hitRate || 0)}%`;
-  };
+
 
   return (
     <div className="flex items-center space-x-4">
@@ -94,9 +91,6 @@ const StatusIndicators = ({ healthData, isConnected }) => {
           ) : (
             <WifiOff className="w-4 h-4 text-red-400" />
           )}
-          <span className={`text-sm ${isConnected ? 'text-green-400' : 'text-red-400'}`}>
-            {isConnected ? 'Connected' : 'Disconnected'}
-          </span>
         </div>
       </Tooltip>
 
@@ -133,12 +127,9 @@ const StatusIndicators = ({ healthData, isConnected }) => {
             {React.createElement(getStatusIcon(healthData.status), { 
               className: `w-4 h-4 ${getStatusColor(healthData.status)}` 
             })}
-            <span className={`text-sm ${getStatusColor(healthData.status)}`}>
-              {healthData.status || 'Unknown'}
-            </span>
             {healthData.uptime && (
               <span className="text-xs text-gray-500">
-                ({formatUptime(healthData.uptime)})
+                {formatUptime(healthData.uptime)}
               </span>
             )}
           </div>
@@ -178,12 +169,9 @@ const StatusIndicators = ({ healthData, isConnected }) => {
             {React.createElement(getStatusIcon(healthData.services.database.status), { 
               className: `w-4 h-4 ${getStatusColor(healthData.services.database.status)}` 
             })}
-            <span className={`text-sm ${getStatusColor(healthData.services.database.status)}`}>
-              {healthData.services.database.connected ? 'DB Connected' : 'DB Disconnected'}
-            </span>
             {healthData.services.database.pool && (
               <span className="text-xs text-gray-500">
-                ({healthData.services.database.pool.idleCount} idle)
+                {healthData.services.database.pool.idleCount} idle
               </span>
             )}
           </div>
@@ -213,49 +201,16 @@ const StatusIndicators = ({ healthData, isConnected }) => {
             {React.createElement(getStatusIcon(healthData.services.websocket.status), { 
               className: `w-4 h-4 ${getStatusColor(healthData.services.websocket.status)}` 
             })}
-            <span className={`text-sm ${getStatusColor(healthData.services.websocket.status)}`}>
-              WS: {healthData.services.websocket.status}
-            </span>
             {healthData.services.websocket.connections && (
               <span className="text-xs text-gray-500">
-                ({healthData.services.websocket.connections})
+                {healthData.services.websocket.connections}
               </span>
             )}
           </div>
         </Tooltip>
       )}
 
-      {/* Cache Performance */}
-      {healthData?.services?.database?.cache && (
-        <Tooltip 
-          content={
-            <div className="space-y-2">
-              <div className="font-semibold">Cache Performance</div>
-              <div className="text-sm">
-                Hit Rate: {formatCacheHitRate(healthData.services.database.cache.hitRate)}
-              </div>
-              {healthData.services.database.cache.hits && (
-                <div className="text-sm">
-                  Hits: {healthData.services.database.cache.hits}
-                </div>
-              )}
-              {healthData.services.database.cache.misses && (
-                <div className="text-sm">
-                  Misses: {healthData.services.database.cache.misses}
-                </div>
-              )}
-            </div>
-          }
-          position="bottom"
-        >
-          <div className="flex items-center space-x-2 px-2 py-1 rounded-lg hover:bg-gray-700/30 transition-colors cursor-help">
-            <Zap className="w-4 h-4 text-gray-400" />
-            <span className="text-sm text-gray-200">
-              Cache: {formatCacheHitRate(healthData.services.database.cache.hitRate)}
-            </span>
-          </div>
-        </Tooltip>
-      )}
+
     </div>
   );
 };

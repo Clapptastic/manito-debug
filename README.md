@@ -262,6 +262,32 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - **Issues**: [GitHub Issues](https://github.com/Clapptastic/ManitoDebug/issues)
 - **Discussions**: [GitHub Discussions](https://github.com/Clapptastic/ManitoDebug/discussions)
 
+## 🔧 Troubleshooting
+
+### Common Issues
+
+#### Network Error: "Failed to fetch"
+**Problem**: Client cannot connect to server API endpoints
+**Solution**: 
+- Ensure both client and server are running
+- Check that proxy endpoints are being used (not direct server URLs)
+- Verify port configuration in `client/src/utils/portConfig.js`
+- See [Network Error Fix Documentation](docs/NETWORK_ERROR_FIX.md)
+
+#### Port Conflicts
+**Problem**: Services fail to start due to port conflicts
+**Solution**:
+- The system automatically resolves port conflicts
+- Check logs for assigned ports
+- Use `npm run dev` to start with dynamic port management
+
+#### Database Connection Issues
+**Problem**: Database connection failures
+**Solution**:
+- Ensure PostgreSQL is running
+- Check database credentials in environment variables
+- Run database migrations: `npm run migrate`
+
 ## 🗺️ Roadmap
 
 - [ ] Enhanced AI analysis capabilities
