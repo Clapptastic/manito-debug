@@ -776,20 +776,36 @@ class EnhancedDatabaseService extends EventEmitter {
 
   // Mock methods for when database is not available
   mockQuery(text, params = []) {
-    this.logger.debug('Using mock query', { query: text.substring(0, 50) });
+    this.logger.warn('Database unavailable - using mock mode', { 
+      query: text.substring(0, 50),
+      suggestion: 'Please check database connection and configuration'
+    });
     
     if (text.includes('SELECT NOW()')) {
       return { rows: [{ now: new Date() }] };
     }
     
     if (text.includes('global_search')) {
+      this.logger.info('Search attempted in mock mode - returning empty results');
       return { rows: [] };
     }
+    
+    // Emit event for UI notification
+    this.emit('mockModeActive', {
+      operation: 'query',
+      message: 'Database connection unavailable. Please check PostgreSQL service.',
+      suggestion: 'Restart database service or check connection settings'
+    });
     
     return { rows: [] };
   }
 
   mockInsert(table, data) {
+    this.logger.warn('Database unavailable - using mock insert', { 
+      table,
+      suggestion: 'Data will not be persisted. Please check database connection.'
+    });
+    
     const record = { 
       id: this.nextId++,
       ...data,
@@ -802,6 +818,15 @@ class EnhancedDatabaseService extends EventEmitter {
     }
     
     this.mockData.get(table).push(record);
+    
+    // Emit event for UI notification
+    this.emit('mockModeActive', {
+      operation: 'insert',
+      table,
+      message: 'Data not saved - database unavailable. Changes will be lost on restart.',
+      suggestion: 'Please connect to PostgreSQL database for data persistence'
+    });
+    
     return record;
   }
 

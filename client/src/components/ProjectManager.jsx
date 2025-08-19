@@ -12,7 +12,9 @@ import {
   Download,
   Upload,
   Calendar,
-  BarChart3
+  BarChart3,
+  FolderOpen,
+  Copy
 } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useToast } from './Toast';
@@ -25,6 +27,29 @@ const ProjectManager = ({ onProjectSelect, currentProjectId, className = '' }) =
   const [newProjectPath, setNewProjectPath] = useState('');
   const toast = useToast();
   const queryClient = useQueryClient();
+
+  // Handle Escape key to close modal
+  useEffect(() => {
+    const handleEscape = (e) => {
+      if (e.key === 'Escape' && isOpen) {
+        setIsOpen(false);
+      }
+    };
+    
+    if (isOpen) {
+      document.addEventListener('keydown', handleEscape);
+      return () => document.removeEventListener('keydown', handleEscape);
+    }
+  }, [isOpen]);
+
+  // Close dropdown when clicking outside
+  React.useEffect(() => {
+    const handleClickOutside = () => setSelectedProject(null);
+    if (selectedProject) {
+      document.addEventListener('click', handleClickOutside);
+      return () => document.removeEventListener('click', handleClickOutside);
+    }
+  }, [selectedProject]);
 
   // Fetch projects
   const projectsQuery = useQuery({
@@ -133,24 +158,35 @@ const ProjectManager = ({ onProjectSelect, currentProjectId, className = '' }) =
         )}
       </button>
 
-      {/* Project Manager Modal */}
+      {/* Project Manager Modal - Highest z-index to appear above all elements */}
       {isOpen && (
-        <div className="fixed inset-0 z-50 flex items-start justify-center pt-20 px-4">
-          <div className="fixed inset-0 bg-black bg-opacity-50" onClick={() => setIsOpen(false)} />
-          <div className="relative w-full max-w-4xl bg-gray-900 rounded-lg border border-gray-700 shadow-2xl">
+        <div className="fixed inset-0 z-[10001] flex items-start justify-center pt-4 sm:pt-20 px-2 sm:px-4 animate-in fade-in duration-200">
+          <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm animate-in fade-in duration-300" onClick={() => setIsOpen(false)} />
+          <div className="relative w-full max-w-4xl bg-gray-900 rounded-lg sm:rounded-lg border border-gray-700 shadow-2xl ring-1 ring-blue-500/20 transform transition-all duration-200 animate-in slide-in-from-top-4 scale-in-95 max-h-[95vh] sm:max-h-[90vh] overflow-hidden" style={{ boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(59, 130, 246, 0.1)' }}>
             {/* Header */}
             <div className="flex items-center justify-between p-6 border-b border-gray-700">
               <div>
                 <h2 className="text-xl font-semibold text-white">Project Manager</h2>
                 <p className="text-gray-400 text-sm">Manage your code analysis projects</p>
               </div>
-              <button
-                onClick={() => setShowCreateForm(true)}
-                className="flex items-center space-x-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
-              >
-                <Plus className="w-4 h-4" />
-                <span>New Project</span>
-              </button>
+              <div className="flex items-center space-x-3">
+                <button
+                  onClick={() => setShowCreateForm(true)}
+                  className="flex items-center space-x-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>New Project</span>
+                </button>
+                <button
+                  onClick={() => setIsOpen(false)}
+                  className="p-2 text-gray-400 hover:text-gray-200 hover:bg-gray-800 rounded-lg transition-colors"
+                  title="Close"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
             </div>
 
             {/* Create Project Form */}
@@ -208,7 +244,7 @@ const ProjectManager = ({ onProjectSelect, currentProjectId, className = '' }) =
             )}
 
             {/* Projects List */}
-            <div className="max-h-96 overflow-y-auto">
+            <div className="max-h-[60vh] sm:max-h-96 overflow-y-auto px-4 sm:px-6">
               {isLoading ? (
                 <div className="p-6 text-center text-gray-400">
                   <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500 mx-auto"></div>
@@ -288,16 +324,75 @@ const ProjectManager = ({ onProjectSelect, currentProjectId, className = '' }) =
                           </div>
 
                           <div className="flex items-center space-x-2 ml-4">
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                // TODO: Implement project actions
-                                toast.info('Project actions coming soon!');
-                              }}
-                              className="p-1 text-gray-400 hover:text-gray-200 hover:bg-gray-700 rounded"
-                            >
-                              <MoreVertical className="w-4 h-4" />
-                            </button>
+                            <div className="relative">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSelectedProject(selectedProject === project.id ? null : project.id);
+                                }}
+                                className="p-1 text-gray-400 hover:text-gray-200 hover:bg-gray-700 rounded"
+                                title="Project actions"
+                              >
+                                <MoreVertical className="w-4 h-4" />
+                              </button>
+                              
+                              {selectedProject === project.id && (
+                                <div className="absolute right-0 top-8 z-[10000] bg-gray-800 border border-gray-600 rounded-lg shadow-lg py-1 min-w-48">
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      onProjectSelect(project);
+                                      setSelectedProject(null);
+                                    }}
+                                    className="w-full px-3 py-2 text-left text-sm text-gray-300 hover:bg-gray-700 flex items-center space-x-2"
+                                  >
+                                    <FolderOpen className="w-4 h-4" />
+                                    <span>Open Project</span>
+                                  </button>
+                                  
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      navigator.clipboard.writeText(project.path);
+                                      toast.success('Project path copied to clipboard');
+                                      setSelectedProject(null);
+                                    }}
+                                    className="w-full px-3 py-2 text-left text-sm text-gray-300 hover:bg-gray-700 flex items-center space-x-2"
+                                  >
+                                    <Copy className="w-4 h-4" />
+                                    <span>Copy Path</span>
+                                  </button>
+                                  
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      const projectInfo = `Project: ${project.name}\nPath: ${project.path}\nDescription: ${project.description || 'No description'}\nLast Scan: ${project.last_scanned_at || 'Never'}`;
+                                      navigator.clipboard.writeText(projectInfo);
+                                      toast.success('Project details copied to clipboard');
+                                      setSelectedProject(null);
+                                    }}
+                                    className="w-full px-3 py-2 text-left text-sm text-gray-300 hover:bg-gray-700 flex items-center space-x-2"
+                                  >
+                                    <FileText className="w-4 h-4" />
+                                    <span>Copy Details</span>
+                                  </button>
+                                  
+                                  <div className="border-t border-gray-600 my-1"></div>
+                                  
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleDeleteProject(project.id, project.name);
+                                      setSelectedProject(null);
+                                    }}
+                                    className="w-full px-3 py-2 text-left text-sm text-red-400 hover:bg-red-900/20 flex items-center space-x-2"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                    <span>Delete Project</span>
+                                  </button>
+                                </div>
+                              )}
+                            </div>
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();

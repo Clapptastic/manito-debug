@@ -14,7 +14,7 @@ import ScanQueueDashboard from './ScanQueueDashboard'
 import SystemMetricsDashboard from './SystemMetricsDashboard'
 import AIProviderConfig from './AIProviderConfig'
 
-const Header = ({ isConnected, healthData, onToggleAI, onOpenSettings }) => {
+const Header = ({ isConnected, healthData, onToggleAI, onOpenSettings, onProjectSelect, onSearchSelect }) => {
   const toast = useToast()
 
 
@@ -40,7 +40,10 @@ const Header = ({ isConnected, healthData, onToggleAI, onOpenSettings }) => {
           <ProjectManager 
             onProjectSelect={(project) => {
               console.log('Project selected:', project);
-              // TODO: Handle project selection
+              if (onProjectSelect) {
+                onProjectSelect(project);
+              }
+              toast.success(`Switched to project: ${project.name}`);
             }}
           />
 
@@ -57,7 +60,10 @@ const Header = ({ isConnected, healthData, onToggleAI, onOpenSettings }) => {
           <GlobalSearch 
             onResultSelect={(result) => {
               console.log('Search result selected:', result);
-              // TODO: Handle search result selection
+              if (onSearchSelect) {
+                onSearchSelect(result);
+              }
+              toast.info(`Selected: ${result.title || result.name}`);
             }}
           />
 

@@ -20,6 +20,20 @@ import { useQuery } from '@tanstack/react-query';
 const SystemMetricsDashboard = ({ className = '' }) => {
   const [isOpen, setIsOpen] = useState(false);
 
+  // Handle Escape key to close modal
+  useEffect(() => {
+    const handleEscape = (e) => {
+      if (e.key === 'Escape' && isOpen) {
+        setIsOpen(false);
+      }
+    };
+    
+    if (isOpen) {
+      document.addEventListener('keydown', handleEscape);
+      return () => document.removeEventListener('keydown', handleEscape);
+    }
+  }, [isOpen]);
+
   // Fetch system metrics
   const metricsQuery = useQuery({
     queryKey: ['system-metrics'],
@@ -116,25 +130,36 @@ const SystemMetricsDashboard = ({ className = '' }) => {
 
       {/* System Metrics Modal */}
       {isOpen && (
-        <div className="fixed inset-0 z-50 flex items-start justify-center pt-20 px-4">
-          <div className="fixed inset-0 bg-black bg-opacity-50" onClick={() => setIsOpen(false)} />
-          <div className="relative w-full max-w-6xl bg-gray-900 rounded-lg border border-gray-700 shadow-2xl">
+        <div className="fixed inset-0 z-[10002] flex items-start justify-center pt-4 sm:pt-20 px-2 sm:px-4 animate-in fade-in duration-200">
+          <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm animate-in fade-in duration-300" onClick={() => setIsOpen(false)} />
+          <div className="relative w-full max-w-6xl bg-gray-900 rounded-lg border border-gray-700 shadow-2xl ring-1 ring-blue-500/20 transform transition-all duration-200 animate-in slide-in-from-top-4 scale-in-95 max-h-[95vh] sm:max-h-[90vh] overflow-hidden">
             {/* Header */}
             <div className="flex items-center justify-between p-6 border-b border-gray-700">
               <div>
                 <h2 className="text-xl font-semibold text-white">System Metrics Dashboard</h2>
                 <p className="text-gray-400 text-sm">Real-time system performance and health monitoring</p>
               </div>
-              <button
-                onClick={() => {
-                  metricsQuery.refetch();
-                  healthQuery.refetch();
-                }}
-                className="flex items-center space-x-2 px-3 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors"
-              >
-                <RefreshCw className="w-4 h-4" />
-                <span>Refresh</span>
-              </button>
+              <div className="flex items-center space-x-2">
+                <button
+                  onClick={() => {
+                    metricsQuery.refetch();
+                    healthQuery.refetch();
+                  }}
+                  className="flex items-center space-x-2 px-3 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors"
+                >
+                  <RefreshCw className="w-4 h-4" />
+                  <span>Refresh</span>
+                </button>
+                <button
+                  onClick={() => setIsOpen(false)}
+                  className="p-2 text-gray-400 hover:text-gray-200 hover:bg-gray-800 rounded-lg transition-colors"
+                  title="Close"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
             </div>
 
             {/* System Overview */}

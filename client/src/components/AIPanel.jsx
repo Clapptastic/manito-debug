@@ -495,7 +495,7 @@ function AIPanel({ scanResults, onClose }) {
 
   return (
     <div className={`glass-panel flex flex-col transition-all duration-300 ${
-      isExpanded ? 'fixed inset-4 z-50' : 'w-96 h-full'
+      isExpanded ? 'fixed inset-4 z-[10007] animate-in fade-in duration-200' : 'w-96 h-full'
     }`}>
       {/* Header */}
       <div className="flex items-center justify-between p-4 border-b border-gray-700/50">

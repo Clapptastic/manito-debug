@@ -143,7 +143,7 @@ function Sidebar({ scanPath, setScanPath, onScan, onUpload, onBrowseDirectory, i
   }
 
   return (
-    <aside className="w-80 glass-panel m-4 mr-0 flex flex-col overflow-visible relative">
+    <aside className="w-80 glass-panel m-4 mr-0 flex flex-col overflow-visible relative z-10">
       {/* Header */}
       <div className="p-6 border-b border-gray-700/50">
         <div className="flex items-center justify-between mb-4">

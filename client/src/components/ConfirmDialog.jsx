@@ -73,11 +73,11 @@ function ConfirmDialog({
 
   return (
     <div 
-      className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+      className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[10008] flex items-center justify-center p-2 sm:p-4 animate-in fade-in duration-200"
       onClick={(e) => e.target === e.currentTarget && onClose()}
       onKeyDown={handleKeyDown}
     >
-      <div className={`glass-panel w-full max-w-md border ${config.className} animate-scale-up`}>
+      <div className={`glass-panel w-full max-w-md border ${config.className} ring-1 ring-blue-500/20 shadow-2xl transform transition-all duration-200 animate-in slide-in-from-top-4 scale-in-95`}>
         {/* Header */}
         <div className="flex items-start justify-between p-6 pb-4">
           <div className="flex items-start space-x-3">

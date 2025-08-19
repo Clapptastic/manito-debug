@@ -5,20 +5,23 @@ const traverseFunction = traverse.default || traverse;
 import { glob } from 'glob';
 import fs from 'fs/promises';
 import path from 'path';
+import { MultiLanguageAnalyzer } from './analyzers/multi-language-analyzer.js';
 
 export class CodeScanner {
   constructor(options = {}) {
     this.options = {
-      patterns: ['**/*.{js,jsx,ts,tsx}'],
-      excludePatterns: ['node_modules/**', 'dist/**', 'build/**'],
+      patterns: ['**/*.{js,jsx,ts,tsx,py,go,rs,java,cpp,cs,php,rb,swift,kt}'],
+      excludePatterns: ['node_modules/**', 'dist/**', 'build/**', 'target/**', 'bin/**', '__pycache__/**'],
       maxFileSize: 1024 * 1024, // 1MB
       ...options
     };
     this.dependencyGraph = new Map();
+    this.multiLangAnalyzer = new MultiLanguageAnalyzer();
     this.metrics = {
       filesScanned: 0,
       linesOfCode: 0,
       dependencies: 0,
+      languages: new Map(),
       conflicts: []
     };
   }
@@ -101,9 +104,21 @@ export class CodeScanner {
 
   async scanFile(filePath) {
     try {
+      // Check if this is a JavaScript/TypeScript file
+      const isJSFile = /\.(js|jsx|ts|tsx)$/.test(filePath);
+      
+      if (!isJSFile) {
+        // Use multi-language analyzer for non-JS files
+        return await this.scanMultiLanguageFile(filePath);
+      }
+
       const content = await fs.readFile(filePath, 'utf-8');
       const lines = content.split('\n').length;
       this.metrics.linesOfCode += lines;
+      
+      // Track language usage
+      const language = this.detectJSLanguage(filePath);
+      this.updateLanguageMetrics(language);
       
       const isTypeScript = filePath.endsWith('.ts') || filePath.endsWith('.tsx');
       const isJSX = filePath.endsWith('.jsx') || filePath.endsWith('.tsx');
@@ -768,6 +783,106 @@ export class CodeScanner {
 
     return chains;
   }
+
+  /**
+   * Update language usage metrics
+   */
+  updateLanguageMetrics(language) {
+    const current = this.metrics.languages.get(language) || 0;
+    this.metrics.languages.set(language, current + 1);
+  }
+
+  /**
+   * Detect JavaScript language variant
+   */
+  detectJSLanguage(filePath) {
+    if (filePath.endsWith('.tsx')) return 'typescript-react';
+    if (filePath.endsWith('.ts')) return 'typescript';
+    if (filePath.endsWith('.jsx')) return 'javascript-react';
+    return 'javascript';
+  }
+
+  /**
+   * Scan non-JavaScript files using multi-language analyzer
+   */
+  async scanMultiLanguageFile(filePath) {
+    try {
+      const analysis = await this.multiLangAnalyzer.analyzeFile(filePath);
+      
+      // Update metrics
+      this.metrics.linesOfCode += analysis.lines;
+      this.updateLanguageMetrics(analysis.language);
+      
+      // Convert to common format
+      return {
+        filePath: analysis.filePath,
+        language: analysis.language,
+        lines: analysis.lines,
+        size: analysis.size,
+        complexity: analysis.complexity,
+        imports: analysis.imports || analysis.uses || analysis.requires || [],
+        exports: analysis.exports || [],
+        functions: analysis.functions || analysis.methods || [],
+        classes: analysis.classes || [],
+        types: analysis.structs || analysis.interfaces || analysis.traits || [],
+        dependencies: analysis.dependencies || [],
+        metadata: {
+          isMultiLanguage: true,
+          originalAnalysis: analysis
+        }
+      };
+    } catch (error) {
+      console.warn(`Multi-language analysis failed for ${filePath}:`, error.message);
+      return null;
+    }
+  }
+
+  /**
+   * Detect JavaScript language variant
+   */
+  detectJSLanguage(filePath) {
+    if (filePath.endsWith('.tsx')) return 'typescript-react';
+    if (filePath.endsWith('.ts')) return 'typescript';
+    if (filePath.endsWith('.jsx')) return 'javascript-react';
+    return 'javascript';
+  }
+
+  /**
+   * Scan non-JavaScript files using multi-language analyzer
+   */
+  async scanMultiLanguageFile(filePath) {
+    try {
+      const analysis = await this.multiLangAnalyzer.analyzeFile(filePath);
+      
+      // Update metrics
+      this.metrics.linesOfCode += analysis.lines;
+      this.updateLanguageMetrics(analysis.language);
+      
+      // Convert to common format
+      return {
+        filePath: analysis.filePath,
+        language: analysis.language,
+        lines: analysis.lines,
+        size: analysis.size,
+        complexity: analysis.complexity,
+        imports: analysis.imports || analysis.uses || analysis.requires || [],
+        exports: analysis.exports || [],
+        functions: analysis.functions || analysis.methods || [],
+        classes: analysis.classes || [],
+        types: analysis.structs || analysis.interfaces || analysis.traits || [],
+        dependencies: analysis.dependencies || [],
+        metadata: {
+          isMultiLanguage: true,
+          originalAnalysis: analysis
+        }
+      };
+    } catch (error) {
+      console.warn(`Multi-language analysis failed for ${filePath}:`, error.message);
+      return null;
+    }
+  }
+
+
 }
 
 export default CodeScanner;

@@ -1,0 +1,122 @@
+{
+  "overall": 90.33333333333334,
+  "categories": {
+    "coreInfrastructure": {
+      "weight": 25,
+      "name": "Core Infrastructure",
+      "completion": 100,
+      "weightedScore": 25
+    },
+    "codeAnalysis": {
+      "weight": 20,
+      "name": "Code Analysis Engine",
+      "completion": 60,
+      "weightedScore": 12
+    },
+    "userInterface": {
+      "weight": 20,
+      "name": "User Interface",
+      "completion": 100,
+      "weightedScore": 20
+    },
+    "aiIntegration": {
+      "weight": 15,
+      "name": "AI Integration",
+      "completion": 100,
+      "weightedScore": 15
+    },
+    "security": {
+      "weight": 10,
+      "name": "Security & Auth",
+      "completion": 100,
+      "weightedScore": 10
+    },
+    "production": {
+      "weight": 10,
+      "name": "Production Ready",
+      "completion": 83.33333333333334,
+      "weightedScore": 8.333333333333336
+    }
+  },
+  "details": {
+    "coreInfrastructure": {
+      "checks": {
+        "dynamicPorts": true,
+        "database": true,
+        "websocket": true,
+        "migrations": true,
+        "docker": true
+      },
+      "completed": 5,
+      "total": 5
+    },
+    "codeAnalysis": {
+      "checks": {
+        "scanner": true,
+        "aiAnalysis": true,
+        "aiFormatter": true,
+        "conflicts": false,
+        "metrics": false
+      },
+      "completed": 3,
+      "total": 5
+    },
+    "userInterface": {
+      "checks": {
+        "App.jsx": true,
+        "Header.jsx": true,
+        "Sidebar.jsx": true,
+        "GraphVisualization.jsx": true,
+        "MetricsPanel.jsx": true,
+        "ConflictsList.jsx": true,
+        "EnhancedFilesTab.jsx": true,
+        "AIPanel.jsx": true,
+        "SettingsModal.jsx": true,
+        "ProgressTracker.jsx": true,
+        "noTODOs": true
+      },
+      "completed": 11,
+      "total": 11,
+      "todoCount": 0
+    },
+    "aiIntegration": {
+      "checks": {
+        "aiService": true,
+        "openaiIntegration": true,
+        "claudeIntegration": true,
+        "aiEndpoint": true,
+        "contextAware": true,
+        "noMockResponses": true
+      },
+      "completed": 6,
+      "total": 6
+    },
+    "security": {
+      "checks": {
+        "authMiddleware": true,
+        "authRoutes": true,
+        "userModel": true,
+        "jwtImplemented": true,
+        "passwordHashing": true,
+        "authApplied": true
+      },
+      "completed": 6,
+      "total": 6
+    },
+    "production": {
+      "checks": {
+        "testsPassing": true,
+        "docker": true,
+        "cicd": true,
+        "monitoring": true,
+        "nginx": true,
+        "noMockData": false
+      },
+      "completed": 5,
+      "total": 6
+    }
+  },
+  "issues": [
+    "Mock data found in server/services/enhancedDatabase.js"
+  ]
+}

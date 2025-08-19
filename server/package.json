@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "nodemon index.js",
     "start": "node index.js",
-    "build": "echo 'No build required for server'"
+    "build": "echo 'No build required for server'",
+    "test": "NODE_OPTIONS='--experimental-vm-modules' npx jest",
+    "test:watch": "npm test -- --watch"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.24.0",
@@ -25,9 +27,23 @@
     "openai": "^4.0.0",
     "pg": "^8.11.0",
     "winston": "^3.10.0",
-    "ws": "^8.14.0"
+    "ws": "^8.14.0",
+    "pgvector": "^0.1.8",
+    "faiss-node": "^0.5.1",
+    "fb-watchman": "^2.0.2"
   },
   "devDependencies": {
-    "nodemon": "^3.0.0"
+    "nodemon": "^3.0.0",
+    "jest": "^29.7.0",
+    "supertest": "^6.3.0"
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "transform": {},
+    "testMatch": ["**/tests/**/*.test.js"],
+    "testPathIgnorePatterns": [
+      "/node_modules/",
+      "/uploads/"
+    ]
   }
 }

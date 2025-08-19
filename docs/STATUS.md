@@ -236,6 +236,19 @@ ManitoDebug is a sophisticated AI-powered code analysis platform with **robust t
 
 **Outcome**: Competitive market leader
 
+### **Phase 4: Code Knowledge Graph System (12-16 weeks)** 🧠
+**Strategic Evolution**: Transform into comprehensive code intelligence platform
+
+**Key Deliverables:**
+1. **Symbolic + Semantic Indexing** - tree-sitter parsers, LSP integration, graph database
+2. **AI-Powered Context Assembly** - Precise retrieval with metadata-driven ranking
+3. **Developer Intelligence Tools** - IDE integration, automated fixes, gap detection
+4. **Enterprise Scale Support** - 100k+ file codebases, distributed processing
+
+📋 **[Complete CKG Implementation Plan →](CODE_KNOWLEDGE_GRAPH_ROADMAP.md)**
+
+**Outcome**: Industry-leading code intelligence platform with unique competitive advantages
+
 ---
 
 ## 📈 **Business Impact Assessment**

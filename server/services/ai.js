@@ -1,4 +1,5 @@
 import OpenAI from 'openai';
+import Anthropic from '@anthropic-ai/sdk';
 
 class AIService {
   constructor() {
@@ -26,9 +27,13 @@ class AIService {
 
     // Claude Provider (Anthropic)
     if (process.env.ANTHROPIC_API_KEY) {
+      const anthropic = new Anthropic({
+        apiKey: process.env.ANTHROPIC_API_KEY,
+      });
+      
       this.providers.set('claude', {
         name: 'Claude',
-        apiKey: process.env.ANTHROPIC_API_KEY,
+        client: anthropic,
         model: process.env.ANTHROPIC_MODEL || 'claude-3-haiku-20240307',
         handler: this.handleClaude.bind(this)
       });
@@ -98,16 +103,25 @@ class AIService {
     const systemPrompt = this.buildSystemPrompt(context);
     const userMessage = this.buildUserMessage(message, context);
 
-    // For now, return a placeholder - would need Anthropic SDK
-    // This is where you'd integrate with Anthropic's API
+    const completion = await config.client.messages.create({
+      model: config.model,
+      max_tokens: 1500,
+      temperature: 0.3,
+      system: systemPrompt,
+      messages: [
+        {
+          role: 'user',
+          content: userMessage
+        }
+      ]
+    });
+
+    const response = completion.content[0]?.text || 'No response generated';
+    
     return {
-      response: `Claude Analysis: ${message} (Note: Anthropic integration requires API setup)`,
-      suggestions: [
-        'Configure ANTHROPIC_API_KEY environment variable',
-        'Install @anthropic-ai/sdk package',
-        'Implement proper Claude API integration'
-      ],
-      confidence: 0.5
+      response,
+      suggestions: this.extractSuggestions(response),
+      confidence: this.calculateClaudeConfidence(completion)
     };
   }
 
@@ -297,6 +311,23 @@ Here are some general principles that might help:`
 
     // Adjust based on completion quality
     if (finishReason === 'stop') confidence += 0.1;
+    if (responseLength > 100) confidence += 0.1;
+    if (responseLength > 300) confidence += 0.1;
+
+    return Math.min(confidence, 0.95);
+  }
+
+  calculateClaudeConfidence(completion) {
+    // Claude-specific confidence calculation
+    if (!completion.content || !completion.content[0]) return 0.5;
+
+    const responseLength = completion.content[0].text?.length || 0;
+    const stopReason = completion.stop_reason;
+
+    let confidence = 0.75; // Base confidence for Claude
+
+    // Adjust based on completion quality
+    if (stopReason === 'end_turn') confidence += 0.1;
     if (responseLength > 100) confidence += 0.1;
     if (responseLength > 300) confidence += 0.1;
 

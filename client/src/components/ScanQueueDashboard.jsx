@@ -19,6 +19,20 @@ import { useToast } from './Toast';
 const ScanQueueDashboard = ({ className = '' }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [selectedJob, setSelectedJob] = useState(null);
+
+  // Handle Escape key to close modal
+  useEffect(() => {
+    const handleEscape = (e) => {
+      if (e.key === 'Escape' && isOpen) {
+        setIsOpen(false);
+      }
+    };
+    
+    if (isOpen) {
+      document.addEventListener('keydown', handleEscape);
+      return () => document.removeEventListener('keydown', handleEscape);
+    }
+  }, [isOpen]);
   const toast = useToast();
   const queryClient = useQueryClient();
 
@@ -148,9 +162,9 @@ const ScanQueueDashboard = ({ className = '' }) => {
 
       {/* Queue Dashboard Modal */}
       {isOpen && (
-        <div className="fixed inset-0 z-50 flex items-start justify-center pt-20 px-4">
-          <div className="fixed inset-0 bg-black bg-opacity-50" onClick={() => setIsOpen(false)} />
-          <div className="relative w-full max-w-6xl bg-gray-900 rounded-lg border border-gray-700 shadow-2xl">
+        <div className="fixed inset-0 z-[10004] flex items-start justify-center pt-4 sm:pt-20 px-2 sm:px-4 animate-in fade-in duration-200">
+          <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm animate-in fade-in duration-300" onClick={() => setIsOpen(false)} />
+          <div className="relative w-full max-w-6xl bg-gray-900 rounded-lg border border-gray-700 shadow-2xl ring-1 ring-blue-500/20 transform transition-all duration-200 animate-in slide-in-from-top-4 scale-in-95 max-h-[95vh] sm:max-h-[90vh] overflow-hidden">
             {/* Header */}
             <div className="flex items-center justify-between p-6 border-b border-gray-700">
               <div>

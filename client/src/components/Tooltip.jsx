@@ -182,7 +182,7 @@ export const HelpTooltip = ({ content, children, ...props }) => (
     content={content} 
     position="top" 
     delay={200}
-    className="max-w-xs z-[9999]"
+    className="max-w-xs z-[10011]"
     {...props}
   >
     {children || (

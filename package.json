@@ -23,6 +23,9 @@
     "test:fullstack-dynamic-ports": "node scripts/test-fullstack-dynamic-ports.js",
     "test:email-validation": "node scripts/test-email-validation.js",
     "test:e2e": "node scripts/e2e-test-suite.js",
+    "update-status": "node scripts/update-status.js",
+    "calculate-progress": "node scripts/calculate-progress.js",
+    "health-check": "node scripts/production-health-check.js",
     "start": "cd server && npm start",
     "start:fullstack": "./start-fullstack.sh"
   },

@@ -1,3 +1,4 @@
+/// <reference types="vitest" />
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import fetch from 'node-fetch';
@@ -85,6 +86,11 @@ export default defineConfig(async () => {
     },
     define: {
       __PORT_CONFIG__: JSON.stringify(portConfig)
+    },
+    test: {
+      globals: true,
+      environment: 'jsdom',
+      setupFiles: ['./src/test/setup.js'],
     }
   };
 });

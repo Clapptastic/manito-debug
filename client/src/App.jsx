@@ -18,7 +18,9 @@ import GraphVisualization from './components/GraphVisualization'
 import MetricsPanel from './components/MetricsPanel'
 import ConflictsList from './components/ConflictsList'
 import AIPanel from './components/AIPanel'
+import CKGPanel from './components/CKGPanel'
 import SettingsModal from './components/SettingsModal'
+import IntelligentMetricsVisualization from './components/IntelligentMetricsVisualization'
 import MockDataAlert from './components/MockDataAlert'
 import { ToastProvider, useToast } from './components/Toast'
 import { SettingsProvider } from './contexts/SettingsContext'
@@ -46,6 +48,7 @@ function AppContent() {
   const [selectedTab, setSelectedTab] = useState('graph')
   const [showAIPanel, setShowAIPanel] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
+  const [currentProject, setCurrentProject] = useState(null)
   const [scanProgress, setScanProgress] = useState({ stage: 'idle', progress: 0, files: 0, details: '' })
   const [scanStage, setScanStage] = useState('idle')
   const { toast } = useToast()
@@ -469,6 +472,7 @@ function AppContent() {
     { id: 'metrics', label: 'Metrics', icon: BarChart3 },
     { id: 'conflicts', label: 'Conflicts', icon: AlertCircle },
     { id: 'files', label: 'Files', icon: FileText },
+    { id: 'ckg', label: 'Knowledge Graph', icon: Brain },
   ]
 
   return (
@@ -478,6 +482,20 @@ function AppContent() {
           healthData={healthData}
           onToggleAI={() => setShowAIPanel(!showAIPanel)}
           onOpenSettings={() => setShowSettings(true)}
+          onProjectSelect={(project) => {
+            setCurrentProject(project);
+            setScanPath(project.path);
+            toast.success(`Switched to project: ${project.name}`);
+          }}
+          onSearchSelect={(result) => {
+            if (result.entity_type === 'project') {
+              setScanPath(result.metadata.path);
+              toast.info(`Navigated to: ${result.title}`);
+            } else if (result.entity_type === 'file') {
+              // Focus on specific file in results
+              toast.info(`Found: ${result.title}`);
+            }
+          }}
         />
       
       <div className="flex flex-1 overflow-hidden">
@@ -525,17 +543,23 @@ function AppContent() {
               <div className="flex-1 overflow-hidden">
                 {selectedTab === 'graph' && (
                   <GraphVisualization 
+                    data={scanResults}
                     dependencies={scanResults.dependencies}
                     conflicts={scanResults.conflicts}
                     files={scanResults.files}
                   />
                 )}
                 {selectedTab === 'metrics' && (
-                  <MetricsPanel 
-                    metrics={scanResults.metrics}
-                    files={scanResults.files}
-                    dependencies={scanResults.dependencies}
-                  />
+                  <div className="h-full">
+                    <IntelligentMetricsVisualization
+                      metricsData={scanResults.metrics}
+                      ckgStats={null} // Would be loaded from CKG API
+                      viewMode="dashboard"
+                      onMetricClick={(metric, value, status) => {
+                        toast.info(`${metric}: ${value} (${status})`);
+                      }}
+                    />
+                  </div>
                 )}
                 {selectedTab === 'conflicts' && (
                   <ConflictsList 
@@ -545,6 +569,13 @@ function AppContent() {
                 )}
                 {selectedTab === 'files' && (
                   <EnhancedFilesTab files={scanResults.files} />
+                )}
+                {selectedTab === 'ckg' && (
+                  <CKGPanel 
+                    projectId={currentProject?.id}
+                    projectPath={scanPath}
+                    isVisible={selectedTab === 'ckg'}
+                  />
                 )}
               </div>
             </div>

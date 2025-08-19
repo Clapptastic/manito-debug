@@ -12,16 +12,30 @@ import {
   HardDrive,
   GitBranch,
   Eye,
-  Download
+  Download,
+  Copy,
+  MoreVertical,
+  ExternalLink
 } from 'lucide-react';
+import { useToast } from './Toast';
 
 const EnhancedFilesTab = ({ files = [] }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [sortBy, setSortBy] = useState('name');
   const [sortOrder, setSortOrder] = useState('asc');
+  const { toast } = useToast();
   const [filterType, setFilterType] = useState('all');
   const [filterComplexity, setFilterComplexity] = useState('all');
   const [selectedFile, setSelectedFile] = useState(null);
+
+  // Close dropdown when clicking outside
+  React.useEffect(() => {
+    const handleClickOutside = () => setSelectedFile(null);
+    if (selectedFile) {
+      document.addEventListener('click', handleClickOutside);
+      return () => document.removeEventListener('click', handleClickOutside);
+    }
+  }, [selectedFile]);
 
   const fileTypes = useMemo(() => {
     const types = {};
@@ -205,7 +219,7 @@ const EnhancedFilesTab = ({ files = [] }) => {
               <option value="all">All Complexity</option>
               <option value="low">Low (≤3)</option>
               <option value="medium">Medium (4-6)</option>
-              <option value="high">High (>6)</option>
+                              <option value="high">High (&gt;6)</option>
             </select>
           </div>
         </div>
@@ -309,17 +323,84 @@ const EnhancedFilesTab = ({ files = [] }) => {
                   </div>
 
                   <div className="flex items-center space-x-2 ml-4">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        // TODO: Implement file actions
-                        console.log('File actions for:', file.filePath);
-                      }}
-                      className="p-1 text-gray-400 hover:text-gray-200 hover:bg-gray-700 rounded"
-                      title="File actions"
-                    >
-                      <Eye className="w-4 h-4" />
-                    </button>
+                    <div className="relative">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedFile(selectedFile === file.filePath ? null : file.filePath);
+                        }}
+                        className="p-1 text-gray-400 hover:text-gray-200 hover:bg-gray-700 rounded"
+                        title="File actions"
+                      >
+                        <MoreVertical className="w-4 h-4" />
+                      </button>
+                      
+                      {selectedFile === file.filePath && (
+                        <div className="absolute right-0 top-8 z-10 bg-gray-800 border border-gray-600 rounded-lg shadow-lg py-1 min-w-48">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              navigator.clipboard.writeText(file.filePath);
+                              toast.success('File path copied to clipboard');
+                              setSelectedFile(null);
+                            }}
+                            className="w-full px-3 py-2 text-left text-sm text-gray-300 hover:bg-gray-700 flex items-center space-x-2"
+                          >
+                            <Copy className="w-4 h-4" />
+                            <span>Copy Path</span>
+                          </button>
+                          
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const fileInfo = `File: ${file.filePath}\nLines: ${file.lines || 'N/A'}\nSize: ${file.size || 'N/A'} bytes\nComplexity: ${file.complexity || 'N/A'}`;
+                              navigator.clipboard.writeText(fileInfo);
+                              toast.success('File details copied to clipboard');
+                              setSelectedFile(null);
+                            }}
+                            className="w-full px-3 py-2 text-left text-sm text-gray-300 hover:bg-gray-700 flex items-center space-x-2"
+                          >
+                            <Eye className="w-4 h-4" />
+                            <span>Copy Details</span>
+                          </button>
+                          
+                          {file.content && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                const blob = new Blob([file.content], { type: 'text/plain' });
+                                const url = URL.createObjectURL(blob);
+                                const a = document.createElement('a');
+                                a.href = url;
+                                a.download = file.filePath.split('/').pop() || 'file.txt';
+                                document.body.appendChild(a);
+                                a.click();
+                                document.body.removeChild(a);
+                                URL.revokeObjectURL(url);
+                                toast.success('File downloaded');
+                                setSelectedFile(null);
+                              }}
+                              className="w-full px-3 py-2 text-left text-sm text-gray-300 hover:bg-gray-700 flex items-center space-x-2"
+                            >
+                              <Download className="w-4 h-4" />
+                              <span>Download File</span>
+                            </button>
+                          )}
+                          
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              window.open(`https://github.com/search?q=${encodeURIComponent(file.filePath.split('/').pop())}&type=code`, '_blank');
+                              setSelectedFile(null);
+                            }}
+                            className="w-full px-3 py-2 text-left text-sm text-gray-300 hover:bg-gray-700 flex items-center space-x-2"
+                          >
+                            <ExternalLink className="w-4 h-4" />
+                            <span>Search on GitHub</span>
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>

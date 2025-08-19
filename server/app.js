@@ -19,6 +19,7 @@ import Project from './models/Project.js';
 import Scan from './models/Scan.js';
 import User from './models/User.js';
 import authRoutes from './routes/auth.js';
+import ckgRoutes from './api/ckg-api.js';
 import { authenticate, optionalAuth, apiRateLimit, userContext } from './middleware/auth.js';
 import StreamingScanner from './services/scanner.js';
 import scanQueue from './services/scanQueue.js';
@@ -26,6 +27,7 @@ import migrations from './services/migrations.js';
 import AIAnalysisFormatter from '../core/ai-analysis.js';
 import WebSocketService from './services/websocket.js';
 import semanticSearchService from './services/semanticSearch.js';
+import ckgService from './services/ckg-service.js';
 import { validateConfig } from './config/ports.js';
 import dynamicPortManager from './services/portManager.js';
 
@@ -175,6 +177,9 @@ scanQueue.on('jobCancelled', (data) => {
 
 // Auth routes
 app.use('/api/auth', authRoutes);
+
+// Code Knowledge Graph routes
+app.use('/api/ckg', ckgRoutes);
 
 // API Routes
   // Health check endpoint
@@ -1547,30 +1552,19 @@ app.get('/api/graph/:scanId?', async (req, res) => {
       }
     }
     
-    // Fallback to mock data
-    const mockGraph = {
-      nodes: [
-        { id: 'app.js', type: 'entry', size: 150, complexity: 5 },
-        { id: 'utils.js', type: 'utility', size: 80, complexity: 2 },
-        { id: 'api.js', type: 'service', size: 120, complexity: 4 },
-        { id: 'components/Header.jsx', type: 'component', size: 60, complexity: 2 },
-        { id: 'components/Graph.jsx', type: 'component', size: 200, complexity: 8 }
-      ],
-      links: [
-        { source: 'app.js', target: 'utils.js', type: 'import', strength: 1 },
-        { source: 'app.js', target: 'api.js', type: 'import', strength: 1 },
-        { source: 'app.js', target: 'components/Header.jsx', type: 'import', strength: 1 },
-        { source: 'components/Graph.jsx', target: 'utils.js', type: 'import', strength: 1 }
-      ]
-    };
-    
+    // No scan data available - return empty state with helpful message
     res.json({
-      scanId: scanId || 'mock',
-      graph: mockGraph,
+      scanId: scanId || null,
+      graph: {
+        nodes: [],
+        links: []
+      },
       metadata: {
-        nodes: mockGraph.nodes.length,
-        edges: mockGraph.links.length,
-        generated: new Date().toISOString()
+        nodes: 0,
+        edges: 0,
+        generated: new Date().toISOString(),
+        message: 'No scan data available. Please run a code scan to generate dependency graph.',
+        isEmpty: true
       }
     });
     
@@ -1634,6 +1628,15 @@ async function startServer() {
     logger.info('Database migrations completed');
   } catch (error) {
     logger.error('Database migration failed:', error);
+  }
+
+  // Initialize Code Knowledge Graph service
+  try {
+    await ckgService.initialize();
+    logger.info('Code Knowledge Graph service initialized');
+  } catch (error) {
+    logger.error('CKG service initialization failed:', error);
+    // Don't exit - CKG is optional functionality
   }
   
   logger.info('Available endpoints:');

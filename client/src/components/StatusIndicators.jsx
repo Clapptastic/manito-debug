@@ -66,6 +66,11 @@ const StatusIndicators = ({ healthData, isConnected }) => {
     return `${mb}MB`;
   };
 
+  const formatCacheHitRate = (rate) => {
+    if (typeof rate !== 'number') return 'N/A';
+    return `${(rate * 100).toFixed(1)}%`;
+  };
+
 
 
   return (

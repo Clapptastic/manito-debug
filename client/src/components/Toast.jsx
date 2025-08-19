@@ -304,7 +304,7 @@ export function ToastProvider({ children }) {
       {children}
       
       {/* Toast Container */}
-      <div className="fixed top-4 right-4 z-[9999] max-w-sm w-full pointer-events-none">
+      <div className="fixed top-4 right-4 z-[10010] max-w-sm w-full pointer-events-none">
         <div className="pointer-events-auto space-y-2">
           {toasts.map(toast => (
             <Toast
