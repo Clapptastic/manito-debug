@@ -1,0 +1,98 @@
+# Production Dockerfile for ManitoDebug
+FROM node:18-alpine AS builder
+
+# Set working directory
+WORKDIR /app
+
+# Install system dependencies
+RUN apk add --no-cache \
+    git \
+    curl \
+    bash \
+    postgresql-client \
+    && rm -rf /var/cache/apk/*
+
+# Copy package files first for better caching
+COPY package*.json ./
+COPY client/package*.json ./client/
+COPY server/package*.json ./server/
+COPY core/package*.json ./core/
+
+# Copy scripts directory (needed for postinstall script)
+COPY scripts ./scripts
+
+# Install dependencies using npm workspaces (skip postinstall to avoid infinite loop)
+RUN npm install --ignore-scripts
+
+# Copy remaining source code
+COPY . .
+
+# Build client
+RUN cd client && npm run build
+
+# Production stage
+FROM node:18-alpine AS production
+
+# Set working directory
+WORKDIR /app
+
+# Install production dependencies only
+RUN apk add --no-cache \
+    curl \
+    postgresql-client \
+    && rm -rf /var/cache/apk/*
+
+# Copy package files
+COPY package*.json ./
+COPY client/package*.json ./client/
+COPY server/package*.json ./server/
+COPY core/package*.json ./core/
+
+# Copy built client and server code
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/client/dist ./client/dist
+COPY --from=builder /app/server ./server
+COPY --from=builder /app/core ./core
+COPY --from=builder /app/scripts ./scripts
+
+# Create necessary directories
+RUN mkdir -p server/uploads server/logs
+
+# Set environment variables for production
+ENV NODE_ENV=production
+ENV ENABLE_DYNAMIC_PORTS=true
+ENV PORT_MANAGER_STRATEGY=conservative
+ENV PORT_HEALTH_CHECK_TIMEOUT=5000
+ENV PORT_MAX_RETRIES=5
+ENV PORT_AUTO_REASSIGN=false
+
+# Port ranges for dynamic assignment
+ENV SERVER_PORT_RANGE_START=3000
+ENV SERVER_PORT_RANGE_END=3999
+ENV CLIENT_PORT_RANGE_START=3000
+ENV CLIENT_PORT_RANGE_END=3999
+ENV DATABASE_PORT_RANGE_START=5432
+ENV DATABASE_PORT_RANGE_END=5439
+ENV REDIS_PORT_RANGE_START=6379
+ENV REDIS_PORT_RANGE_END=6389
+ENV MONITORING_PORT_RANGE_START=9090
+ENV MONITORING_PORT_RANGE_END=9099
+
+# Email Configuration - Ensures manito.ai emails are accepted
+ENV ALLOWED_EMAIL_DOMAINS=manito.ai,manito.com,gmail.com,yahoo.com,outlook.com,hotmail.com
+
+# Expose dynamic port ranges
+EXPOSE 3000-3999 5432-5439 6379-6389 9090-9099
+
+# Health check with dynamic port support
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:3000/api/health || \
+        curl -f http://localhost:3001/api/health || \
+        curl -f http://localhost:3002/api/health || exit 1
+
+# Production startup script
+COPY scripts/start-prod.sh /usr/local/bin/start-prod.sh
+RUN chmod +x /usr/local/bin/start-prod.sh
+
+# Set the default command
+CMD ["/usr/local/bin/start-prod.sh"]

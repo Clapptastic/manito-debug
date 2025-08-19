@@ -1438,8 +1438,10 @@ app.get('/api/projects', async (req, res) => {
       const offset = parseInt(req.query.offset) || 0;
       projects = await Project.findByUserId(req.user.id, limit, offset);
     } else {
-      // Anonymous users see no projects (or could see public projects)
-      projects = [];
+      // Anonymous users see projects with user_id = NULL
+      const limit = parseInt(req.query.limit) || 50;
+      const offset = parseInt(req.query.offset) || 0;
+      projects = await Project.findAll(limit, offset);
     }
     
     res.json({ 

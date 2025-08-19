@@ -1,0 +1,57 @@
+graph TD
+    A[User Uploads Files] --> B[Upload API /api/upload]
+    A --> C[User Enters Path]
+    A --> D[User Browses Directory]
+    
+    B --> E[File Extraction & Processing]
+    C --> F[Path Validation]
+    D --> G[Directory Selection]
+    
+    E --> H[Files Stored in Database]
+    F --> H
+    G --> H
+    
+    H --> I[User Clicks 'Start Analysis']
+    I --> J[Analysis API /api/analyze]
+    
+    J --> K[Scanner Service]
+    K --> L[File Processing]
+    L --> M[Code Analysis]
+    M --> N[AI Analysis (if enabled)]
+    
+    N --> O[Results Stored in Database]
+    L --> O
+    M --> O
+    
+    O --> P[WebSocket Updates]
+    P --> Q[Frontend Updates]
+    
+    subgraph "Upload Flow"
+        B
+        E
+        H
+    end
+    
+    subgraph "Analysis Flow"
+        J
+        K
+        L
+        M
+        N
+        O
+    end
+    
+    subgraph "Real-time Updates"
+        P
+        Q
+    end
+    
+    subgraph "Database"
+        H
+        O
+    end
+    
+    subgraph "Services"
+        K
+        N
+    end

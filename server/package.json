@@ -1,0 +1,33 @@
+{
+  "name": "@manito/server",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "dev": "nodemon index.js",
+    "start": "node index.js",
+    "build": "echo 'No build required for server'"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.24.0",
+    "@manito/core": "*",
+    "adm-zip": "^0.5.16",
+    "bcrypt": "^6.0.0",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.5",
+    "express": "^4.18.0",
+    "express-rate-limit": "^8.0.1",
+    "express-slow-down": "^2.0.0",
+    "helmet": "^7.1.0",
+    "joi": "^17.10.0",
+    "jsonwebtoken": "^9.0.2",
+    "multer": "^2.0.2",
+    "openai": "^4.0.0",
+    "pg": "^8.11.0",
+    "winston": "^3.10.0",
+    "ws": "^8.14.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.0"
+  }
+}
