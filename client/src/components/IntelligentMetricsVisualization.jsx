@@ -205,9 +205,26 @@ const IntelligentMetricsVisualization = ({
     }
   ], []);
 
-  // Advanced visualization components
-  const renderRadarChart = useCallback(() => {
-    const config = chartConfigs.radar;
+  // Chart renderer based on selected type
+  const renderChart = useCallback(() => {
+    switch (chartType) {
+      case 'radar':
+        return <RadarChart config={chartConfigs.radar} data={normalizedMetrics} categories={metricCategories} />;
+      case 'treemap':
+        return <TreemapChart config={chartConfigs.treemap} data={normalizedMetrics} categories={metricCategories} />;
+      case 'heatmap':
+        return <HeatmapChart config={chartConfigs.heatmap} data={normalizedMetrics} categories={metricCategories} onMetricClick={onMetricClick} />;
+      case 'timeline':
+        return <TimelineChart config={chartConfigs.timeline} data={normalizedMetrics} categories={metricCategories} />;
+      case 'network':
+        return <NetworkChart config={chartConfigs.network} data={normalizedMetrics} categories={metricCategories} onMetricClick={onMetricClick} />;
+      default:
+        return <RadarChart config={chartConfigs.radar} data={normalizedMetrics} categories={metricCategories} />;
+    }
+  }, [chartType, chartConfigs, normalizedMetrics, metricCategories, onMetricClick]);
+
+  // Radar Chart Component
+  const RadarChart = ({ config, data, categories }) => {
     const svgRef = React.useRef();
     
     React.useEffect(() => {
@@ -225,7 +242,7 @@ const IntelligentMetricsVisualization = ({
       
       // Create scales
       const angleScale = d3.scalePoint()
-        .domain(metricCategories.map(cat => cat.name))
+        .domain(categories.map(cat => cat.name))
         .range([0, 2 * Math.PI]);
       
       const radiusScale = d3.scaleLinear()
@@ -233,7 +250,7 @@ const IntelligentMetricsVisualization = ({
         .range([0, radius]);
       
       // Draw axes
-      metricCategories.forEach((category, i) => {
+      categories.forEach((category, i) => {
         const angle = angleScale(category.name) - Math.PI / 2;
         const x = radius * Math.cos(angle);
         const y = radius * Math.sin(angle);
@@ -268,9 +285,9 @@ const IntelligentMetricsVisualization = ({
       });
       
       // Calculate category scores
-      const categoryScores = metricCategories.map(category => {
+      const categoryScores = categories.map(category => {
         const score = category.metrics.reduce((sum, metric) => {
-          const value = normalizedMetrics[metric.key] || 0;
+          const value = data[metric.key] || 0;
           const normalizedValue = Math.min(100, (value / metric.threshold) * 100);
           return sum + (normalizedValue * metric.weight);
         }, 0);
@@ -299,20 +316,10 @@ const IntelligentMetricsVisualization = ({
         .attr('cy', d => radiusScale(d.score) * Math.sin(angleScale(d.name) - Math.PI / 2))
         .attr('r', 4)
         .attr('fill', d => d.color)
-        .attr('stroke', 'white')
-        .attr('stroke-width', 2)
-        .style('cursor', 'pointer')
-        .on('mouseover', function(event, d) {
-          setHoveredMetric(d);
-          d3.select(this).attr('r', 6);
-        })
-        .on('mouseout', function() {
-          setHoveredMetric(null);
-          d3.select(this).attr('r', 4);
-        })
-        .on('click', () => onMetricClick?.(d.name, d.score, 'radar'));
-      
-    }, [normalizedMetrics, chartConfigs.radar, metricCategories, onMetricClick]);
+        .attr('stroke', '#fff')
+        .attr('stroke-width', 2);
+        
+    }, [config, data, categories]);
     
     return (
       <svg
@@ -322,10 +329,10 @@ const IntelligentMetricsVisualization = ({
         className="radar-chart"
       />
     );
-  }, [normalizedMetrics, chartConfigs.radar, metricCategories, onMetricClick]);
+  };
 
-  const renderTreemap = useCallback(() => {
-    const config = chartConfigs.treemap;
+  // Treemap Chart Component
+  const TreemapChart = ({ config, data, categories }) => {
     const svgRef = React.useRef();
     
     React.useEffect(() => {
@@ -340,74 +347,62 @@ const IntelligentMetricsVisualization = ({
       const g = svg.append('g')
         .attr('transform', `translate(${config.margin.left}, ${config.margin.top})`);
       
-      // Prepare data for treemap
-      const treemapData = {
-        name: 'metrics',
-        children: metricCategories.map(category => ({
-          name: category.name,
-          children: category.metrics.map(metric => ({
-            name: metric.label,
-            value: normalizedMetrics[metric.key] || 0,
-            threshold: metric.threshold,
-            unit: metric.unit,
-            color: category.color
-          }))
+      // Prepare treemap data
+      const treemapData = categories.map(category => ({
+        name: category.name,
+        children: category.metrics.map(metric => ({
+          name: metric.label,
+          value: data[metric.key] || 0,
+          threshold: metric.threshold,
+          color: category.color
         }))
-      };
+      }));
       
       const treemap = d3.treemap()
         .size([width, height])
         .padding(2);
       
-      const root = d3.hierarchy(treemapData)
+      const root = d3.hierarchy({ children: treemapData })
         .sum(d => d.value)
         .sort((a, b) => b.value - a.value);
       
       treemap(root);
       
       // Draw rectangles
-      const nodes = g.selectAll('.node')
+      g.selectAll('.treemap-rect')
         .data(root.leaves())
         .enter()
-        .append('g')
-        .attr('class', 'node')
-        .attr('transform', d => `translate(${d.x0}, ${d.y0})`);
-      
-      nodes.append('rect')
+        .append('rect')
+        .attr('class', 'treemap-rect')
+        .attr('x', d => d.x0)
+        .attr('y', d => d.y0)
         .attr('width', d => d.x1 - d.x0)
         .attr('height', d => d.y1 - d.y0)
-        .attr('fill', d => config.colors(d.value))
+        .attr('fill', d => d.data.color)
         .attr('stroke', '#fff')
         .attr('stroke-width', 1)
         .style('cursor', 'pointer')
         .on('mouseover', function(event, d) {
-          setHoveredMetric(d.data);
           d3.select(this).attr('stroke-width', 3);
         })
         .on('mouseout', function() {
-          setHoveredMetric(null);
           d3.select(this).attr('stroke-width', 1);
-        })
-        .on('click', () => onMetricClick?.(d.data.name, d.data.value, 'treemap'));
+        });
       
       // Add labels
-      nodes.append('text')
-        .attr('x', 3)
-        .attr('y', 15)
-        .text(d => d.data.name)
+      g.selectAll('.treemap-label')
+        .data(root.leaves())
+        .enter()
+        .append('text')
+        .attr('class', 'treemap-label')
+        .attr('x', d => d.x0 + 5)
+        .attr('y', d => d.y0 + 15)
+        .text(d => `${d.data.name}: ${d.value}`)
         .style('font-size', '10px')
         .style('fill', '#fff')
         .style('pointer-events', 'none');
-      
-      nodes.append('text')
-        .attr('x', 3)
-        .attr('y', 28)
-        .text(d => `${d.data.value}${d.data.unit}`)
-        .style('font-size', '8px')
-        .style('fill', '#fff')
-        .style('pointer-events', 'none');
-      
-    }, [normalizedMetrics, chartConfigs.treemap, metricCategories, onMetricClick]);
+        
+    }, [config, data, categories]);
     
     return (
       <svg
@@ -417,10 +412,10 @@ const IntelligentMetricsVisualization = ({
         className="treemap-chart"
       />
     );
-  }, [normalizedMetrics, chartConfigs.treemap, metricCategories, onMetricClick]);
+  };
 
-  const renderHeatmap = useCallback(() => {
-    const config = chartConfigs.heatmap;
+  // Heatmap Chart Component
+  const HeatmapChart = ({ config, data, categories, onMetricClick }) => {
     const svgRef = React.useRef();
     
     React.useEffect(() => {
@@ -436,11 +431,11 @@ const IntelligentMetricsVisualization = ({
         .attr('transform', `translate(${config.margin.left}, ${config.margin.top})`);
       
       // Prepare heatmap data
-      const heatmapData = metricCategories.flatMap((category, i) =>
+      const heatmapData = categories.flatMap((category, i) =>
         category.metrics.map((metric, j) => ({
           category: category.name,
           metric: metric.label,
-          value: normalizedMetrics[metric.key] || 0,
+          value: data[metric.key] || 0,
           threshold: metric.threshold,
           x: i,
           y: j
@@ -448,12 +443,12 @@ const IntelligentMetricsVisualization = ({
       );
       
       const xScale = d3.scaleBand()
-        .domain(metricCategories.map(cat => cat.name))
+        .domain(categories.map(cat => cat.name))
         .range([0, width])
         .padding(0.1);
       
       const yScale = d3.scaleBand()
-        .domain(metricCategories.flatMap(cat => cat.metrics.map(m => m.label)))
+        .domain(categories.flatMap(cat => cat.metrics.map(m => m.label)))
         .range([0, height])
         .padding(0.1);
       
@@ -473,15 +468,7 @@ const IntelligentMetricsVisualization = ({
         .attr('stroke', '#fff')
         .attr('stroke-width', 1)
         .style('cursor', 'pointer')
-        .on('mouseover', function(event, d) {
-          setHoveredMetric(d);
-          d3.select(this).attr('stroke-width', 3);
-        })
-        .on('mouseout', function() {
-          setHoveredMetric(null);
-          d3.select(this).attr('stroke-width', 1);
-        })
-        .on('click', () => onMetricClick?.(d.metric, d.value, 'heatmap'));
+        .on('click', (event, d) => onMetricClick?.(d.metric, d.value, 'heatmap'));
       
       // Add axis labels
       g.append('g')
@@ -495,8 +482,8 @@ const IntelligentMetricsVisualization = ({
       
       g.append('g')
         .call(d3.axisLeft(yScale));
-      
-    }, [normalizedMetrics, chartConfigs.heatmap, metricCategories, onMetricClick]);
+        
+    }, [config, data, categories, onMetricClick]);
     
     return (
       <svg
@@ -506,10 +493,10 @@ const IntelligentMetricsVisualization = ({
         className="heatmap-chart"
       />
     );
-  }, [normalizedMetrics, chartConfigs.heatmap, metricCategories, onMetricClick]);
+  };
 
-  const renderTimeline = useCallback(() => {
-    const config = chartConfigs.timeline;
+  // Timeline Chart Component
+  const TimelineChart = ({ config, data, categories }) => {
     const svgRef = React.useRef();
     
     React.useEffect(() => {
@@ -524,57 +511,46 @@ const IntelligentMetricsVisualization = ({
       const g = svg.append('g')
         .attr('transform', `translate(${config.margin.left}, ${config.margin.top})`);
       
-      // Generate mock timeline data (in real app, this would come from historical data)
-      const timelineData = metricCategories.map((category, i) => ({
+      // Generate mock timeline data
+      const timelineData = categories.map((category, i) => ({
         category: category.name,
-        values: Array.from({ length: 10 }, (_, j) => ({
-          time: j,
-          value: Math.random() * 100,
-          threshold: category.metrics[0]?.threshold || 50
-        }))
+        value: category.metrics.reduce((sum, metric) => sum + (data[metric.key] || 0), 0),
+        color: category.color,
+        x: (i / (categories.length - 1)) * width
       }));
       
-      const xScale = d3.scaleLinear()
-        .domain([0, 9])
-        .range([0, width]);
-      
       const yScale = d3.scaleLinear()
-        .domain([0, 100])
+        .domain([0, d3.max(timelineData, d => d.value)])
         .range([height, 0]);
       
-      const line = d3.line()
-        .x(d => xScale(d.time))
-        .y(d => yScale(d.value));
+      // Draw timeline bars
+      g.selectAll('.timeline-bar')
+        .data(timelineData)
+        .enter()
+        .append('rect')
+        .attr('class', 'timeline-bar')
+        .attr('x', d => d.x - 20)
+        .attr('y', d => yScale(d.value))
+        .attr('width', 40)
+        .attr('height', d => height - yScale(d.value))
+        .attr('fill', d => d.color)
+        .attr('stroke', '#fff')
+        .attr('stroke-width', 1);
       
-      // Draw lines for each category
-      timelineData.forEach((category, i) => {
-        g.append('path')
-          .datum(category.values)
-          .attr('d', line)
-          .attr('fill', 'none')
-          .attr('stroke', config.colors(i))
-          .attr('stroke-width', 2)
-          .style('cursor', 'pointer')
-          .on('mouseover', function() {
-            setHoveredMetric(category);
-            d3.select(this).attr('stroke-width', 4);
-          })
-          .on('mouseout', function() {
-            setHoveredMetric(null);
-            d3.select(this).attr('stroke-width', 2);
-          })
-          .on('click', () => onMetricClick?.(category.category, category.values[category.values.length - 1].value, 'timeline'));
-      });
-      
-      // Add axes
-      g.append('g')
-        .attr('transform', `translate(0, ${height})`)
-        .call(d3.axisBottom(xScale).ticks(10));
-      
-      g.append('g')
-        .call(d3.axisLeft(yScale).ticks(5));
-      
-    }, [chartConfigs.timeline, metricCategories, onMetricClick]);
+      // Add labels
+      g.selectAll('.timeline-label')
+        .data(timelineData)
+        .enter()
+        .append('text')
+        .attr('class', 'timeline-label')
+        .attr('x', d => d.x)
+        .attr('y', height + 20)
+        .text(d => d.category)
+        .style('text-anchor', 'middle')
+        .style('font-size', '10px')
+        .style('fill', '#666');
+        
+    }, [config, data, categories]);
     
     return (
       <svg
@@ -584,10 +560,10 @@ const IntelligentMetricsVisualization = ({
         className="timeline-chart"
       />
     );
-  }, [chartConfigs.timeline, metricCategories, onMetricClick]);
+  };
 
-  const renderNetworkGraph = useCallback(() => {
-    const config = chartConfigs.network;
+  // Network Chart Component
+  const NetworkChart = ({ config, data, categories, onMetricClick }) => {
     const svgRef = React.useRef();
     
     React.useEffect(() => {
@@ -602,23 +578,22 @@ const IntelligentMetricsVisualization = ({
       const g = svg.append('g')
         .attr('transform', `translate(${config.margin.left}, ${config.margin.top})`);
       
-      // Generate network data based on metrics relationships
-      const nodes = metricCategories.map((category, i) => ({
+      // Create network data
+      const nodes = categories.map(category => ({
         id: category.name,
-        group: i,
-        value: category.metrics.reduce((sum, metric) => sum + (normalizedMetrics[metric.key] || 0), 0) / category.metrics.length
+        group: category.name,
+        value: category.metrics.reduce((sum, metric) => sum + (data[metric.key] || 0), 0),
+        color: category.color
       }));
       
       const links = [];
       for (let i = 0; i < nodes.length; i++) {
         for (let j = i + 1; j < nodes.length; j++) {
-          if (Math.random() > 0.5) {
-            links.push({
-              source: nodes[i].id,
-              target: nodes[j].id,
-              value: Math.random() * 10
-            });
-          }
+          links.push({
+            source: nodes[i].id,
+            target: nodes[j].id,
+            value: Math.random() * 0.5 + 0.1
+          });
         }
       }
       
@@ -635,7 +610,7 @@ const IntelligentMetricsVisualization = ({
         .append('line')
         .attr('stroke', '#999')
         .attr('stroke-opacity', 0.6)
-        .attr('stroke-width', d => Math.sqrt(d.value));
+        .attr('stroke-width', d => Math.sqrt(d.value) * 2);
       
       // Draw nodes
       const node = g.append('g')
@@ -643,24 +618,16 @@ const IntelligentMetricsVisualization = ({
         .data(nodes)
         .enter()
         .append('circle')
-        .attr('r', d => Math.sqrt(d.value) + 5)
-        .attr('fill', d => config.colors(d.group))
+        .attr('r', d => Math.sqrt(d.value) * 2 + 5)
+        .attr('fill', d => d.color)
         .attr('stroke', '#fff')
         .attr('stroke-width', 2)
         .style('cursor', 'pointer')
+        .on('click', (event, d) => onMetricClick?.(d.id, d.value, 'network'))
         .call(d3.drag()
           .on('start', dragstarted)
           .on('drag', dragged)
-          .on('end', dragended))
-        .on('mouseover', function(event, d) {
-          setHoveredMetric(d);
-          d3.select(this).attr('stroke-width', 4);
-        })
-        .on('mouseout', function() {
-          setHoveredMetric(null);
-          d3.select(this).attr('stroke-width', 2);
-        })
-        .on('click', () => onMetricClick?.(d.id, d.value, 'network'));
+          .on('end', dragended));
       
       // Add labels
       const label = g.append('g')
@@ -669,12 +636,11 @@ const IntelligentMetricsVisualization = ({
         .enter()
         .append('text')
         .text(d => d.id)
-        .attr('text-anchor', 'middle')
+        .attr('x', 12)
         .attr('dy', '.35em')
         .style('font-size', '10px')
-        .style('pointer-events', 'none');
+        .style('fill', '#fff');
       
-      // Update positions on simulation tick
       simulation.on('tick', () => {
         link
           .attr('x1', d => d.source.x)
@@ -687,7 +653,7 @@ const IntelligentMetricsVisualization = ({
           .attr('cy', d => d.y);
         
         label
-          .attr('x', d => d.x)
+          .attr('x', d => d.x + 12)
           .attr('y', d => d.y);
       });
       
@@ -709,7 +675,7 @@ const IntelligentMetricsVisualization = ({
       }
       
       return () => simulation.stop();
-    }, [normalizedMetrics, chartConfigs.network, metricCategories, onMetricClick]);
+    }, [config, data, categories, onMetricClick]);
     
     return (
       <svg
@@ -719,25 +685,7 @@ const IntelligentMetricsVisualization = ({
         className="network-chart"
       />
     );
-  }, [normalizedMetrics, chartConfigs.network, metricCategories, onMetricClick]);
-
-  // Chart renderer based on selected type
-  const renderChart = useCallback(() => {
-    switch (chartType) {
-      case 'radar':
-        return renderRadarChart();
-      case 'treemap':
-        return renderTreemap();
-      case 'heatmap':
-        return renderHeatmap();
-      case 'timeline':
-        return renderTimeline();
-      case 'network':
-        return renderNetworkGraph();
-      default:
-        return renderRadarChart();
-    }
-  }, [chartType, renderRadarChart, renderTreemap, renderHeatmap, renderTimeline, renderNetworkGraph]);
+  };
 
   // Enhanced health score display
   const getHealthColor = useCallback((score) => {
