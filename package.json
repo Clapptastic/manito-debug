@@ -123,11 +123,14 @@
     "core"
   ],
   "dependencies": {
+    "@noble/hashes": "^1.8.0",
     "@supabase/supabase-js": "^2.55.0",
+    "dezalgo": "^1.0.4",
     "humanize-ms": "^2.0.0",
     "jwa": "^2.0.1",
     "node-fetch": "^3.3.2",
-    "node-int64": "^0.4.0"
+    "node-int64": "^0.4.0",
+    "strip-bom": "^5.0.0"
   },
   "engines": {
     "node": ">=20.0.0",

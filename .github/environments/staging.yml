@@ -1,0 +1,11 @@
+name: staging
+on:
+  branch:
+    - develop
+  required_reviewers:
+    - your-username
+  wait_timer:
+    minutes: 2
+  deployment_branch_policy:
+    protected_branches: true
+    custom_branch_policies: false

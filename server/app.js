@@ -14,6 +14,7 @@ import { fileURLToPath } from 'url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 import { CodeScanner } from '@manito/core';
 import aiService from './services/ai.js';
+import vaultService from './services/vault-service.js';
 import enhancedDb from './services/enhancedDatabase.js';
 import Project from './models/Project.js';
 import Scan from './models/Scan.js';
@@ -290,6 +291,20 @@ app.use('/api/flows', userFlowRoutes);
           status: 'error',
           error: error.message,
           message: 'AI service health check failed'
+        };
+      }
+
+      // Vault health
+      try {
+        const vaultHealth = await vaultService.healthCheck();
+        detailedHealth.services.vault = {
+          status: vaultHealth.status,
+          message: vaultHealth.message
+        };
+      } catch (error) {
+        detailedHealth.services.vault = {
+          status: 'error',
+          message: 'Vault health check failed'
         };
       }
       
@@ -1017,31 +1032,22 @@ app.post('/api/ai/settings', async (req, res) => {
       return res.status(400).json({ error: 'AI API keys are required' });
     }
     
-    // Update environment variables for the current process
-    if (aiApiKeys.openai) {
-      process.env.OPENAI_API_KEY = aiApiKeys.openai;
-    }
-    if (aiApiKeys.anthropic) {
-      process.env.ANTHROPIC_API_KEY = aiApiKeys.anthropic;
-    }
-    if (aiApiKeys.google) {
-      process.env.GOOGLE_API_KEY = aiApiKeys.google;
-    }
-    
-    // Reinitialize AI service with new keys
-    aiService.initializeProviders();
+    // Update API keys using vault service
+    await aiService.updateApiKeys(aiApiKeys);
     
     logger.info('AI settings updated', { 
       hasOpenAI: !!aiApiKeys.openai,
       hasAnthropic: !!aiApiKeys.anthropic,
       hasGoogle: !!aiApiKeys.google,
-      provider: aiProvider 
+      provider: aiProvider,
+      vaultEnabled: vaultService.isInitialized()
     });
     
     res.json({ 
       success: true, 
       message: 'AI settings updated successfully',
-      providers: aiService.getAvailableProviders()
+      providers: aiService.getAvailableProviders(),
+      vaultEnabled: vaultService.isInitialized()
     });
     
   } catch (error) {
@@ -1753,7 +1759,296 @@ async function startServer() {
   logger.info('  GET  /api/scans/:id');
   logger.info('  GET  /api/ai/providers');
   logger.info('  POST /api/ai/send');
+  logger.info('  POST /api/ai/settings');
+  logger.info('  POST /api/ai/test-connection');
+  logger.info('  GET  /api/vault/status');
+  logger.info('  GET  /api/vault/keys');
+  logger.info('  DELETE /api/vault/keys/:provider');
+  logger.info('  DELETE /api/vault/keys');
+  logger.info('  GET  /api/vault/audit-log');
+  logger.info('  GET  /api/vault/rotation-schedule');
+  logger.info('  POST /api/vault/rotate-key/:provider');
+  logger.info('  POST /api/vault/set-rotation-schedule');
+  logger.info('  POST /api/vault/create-backup');
+  logger.info('  POST /api/vault/restore-backup/:backupId');
+  logger.info('  GET  /api/ai/vault-status');
+  logger.info('  POST /api/ai/rotate-key/:provider');
+  logger.info('  GET  /api/ai/audit-log');
   logger.info('  GET  /api/graph/:scanId?');
+  
+  // Add vault management endpoints
+  app.get('/api/vault/status', async (req, res) => {
+    try {
+      const status = {
+        initialized: vaultService.isInitialized(),
+        health: await vaultService.healthCheck()
+      };
+      
+      res.json(status);
+    } catch (error) {
+      logger.error('Failed to get vault status', error);
+      res.status(500).json({ 
+        error: 'Failed to get vault status', 
+        message: error.message 
+      });
+    }
+  });
+
+  app.get('/api/vault/keys', async (req, res) => {
+    try {
+      const userId = req.user?.id || 'default';
+      const keys = await vaultService.getAllApiKeys(userId);
+      
+      // Return only provider names, not the actual keys
+      const providers = Object.keys(keys).filter(provider => keys[provider] !== null);
+      
+      res.json({ 
+        providers,
+        count: providers.length,
+        vaultEnabled: vaultService.isInitialized()
+      });
+    } catch (error) {
+      logger.error('Failed to get API keys', error);
+      res.status(500).json({ 
+        error: 'Failed to get API keys', 
+        message: error.message 
+      });
+    }
+  });
+
+  app.delete('/api/vault/keys/:provider', async (req, res) => {
+    try {
+      const userId = req.user?.id || 'default';
+      const { provider } = req.params;
+      
+      await vaultService.deleteApiKey(userId, provider);
+      
+      res.json({ 
+        success: true, 
+        message: `API key for ${provider} deleted successfully` 
+      });
+    } catch (error) {
+      logger.error('Failed to delete API key', error);
+      res.status(500).json({ 
+        error: 'Failed to delete API key', 
+        message: error.message 
+      });
+    }
+  });
+
+  app.delete('/api/vault/keys', async (req, res) => {
+    try {
+      const userId = req.user?.id || 'default';
+      
+      await vaultService.deleteAllApiKeys(userId);
+      
+      res.json({ 
+        success: true, 
+        message: 'All API keys deleted successfully' 
+      });
+    } catch (error) {
+      logger.error('Failed to delete all API keys', error);
+      res.status(500).json({ 
+        error: 'Failed to delete all API keys', 
+        message: error.message 
+      });
+    }
+  });
+
+  // Enhanced vault endpoints
+  app.get('/api/vault/audit-log', async (req, res) => {
+    try {
+      const { limit = 50, offset = 0 } = req.query;
+      const auditLog = await vaultService.getAuditLog(parseInt(limit), parseInt(offset));
+      
+      res.json({
+        success: true,
+        data: auditLog,
+        count: auditLog.length
+      });
+    } catch (error) {
+      logger.error('Failed to get audit log', error);
+      res.status(500).json({ 
+        error: 'Failed to get audit log', 
+        message: error.message 
+      });
+    }
+  });
+
+  app.get('/api/vault/rotation-schedule', async (req, res) => {
+    try {
+      const rotationSchedule = await vaultService.getKeyRotationSchedule();
+      
+      res.json({
+        success: true,
+        data: rotationSchedule,
+        count: rotationSchedule.length
+      });
+    } catch (error) {
+      logger.error('Failed to get rotation schedule', error);
+      res.status(500).json({ 
+        error: 'Failed to get rotation schedule', 
+        message: error.message 
+      });
+    }
+  });
+
+  app.post('/api/vault/rotate-key/:provider', async (req, res) => {
+    try {
+      const userId = req.user?.id || 'default';
+      const { provider } = req.params;
+      
+      const success = await vaultService.rotateApiKey(provider, userId);
+      
+      if (success) {
+        res.json({ 
+          success: true, 
+          message: `API key for ${provider} rotated successfully` 
+        });
+      } else {
+        res.status(400).json({ 
+          success: false, 
+          error: `Failed to rotate API key for ${provider}` 
+        });
+      }
+    } catch (error) {
+      logger.error('Failed to rotate API key', error);
+      res.status(500).json({ 
+        error: 'Failed to rotate API key', 
+        message: error.message 
+      });
+    }
+  });
+
+  app.post('/api/vault/set-rotation-schedule', async (req, res) => {
+    try {
+      const { provider, daysUntilRotation = 90 } = req.body;
+      
+      if (!provider) {
+        return res.status(400).json({ error: 'Provider is required' });
+      }
+      
+      await vaultService.setKeyRotationSchedule(provider, daysUntilRotation);
+      
+      res.json({ 
+        success: true, 
+        message: `Rotation schedule set for ${provider} (${daysUntilRotation} days)` 
+      });
+    } catch (error) {
+      logger.error('Failed to set rotation schedule', error);
+      res.status(500).json({ 
+        error: 'Failed to set rotation schedule', 
+        message: error.message 
+      });
+    }
+  });
+
+  app.post('/api/vault/create-backup', async (req, res) => {
+    try {
+      await vaultService.createBackup();
+      
+      res.json({ 
+        success: true, 
+        message: 'Backup created successfully' 
+      });
+    } catch (error) {
+      logger.error('Failed to create backup', error);
+      res.status(500).json({ 
+        error: 'Failed to create backup', 
+        message: error.message 
+      });
+    }
+  });
+
+  app.post('/api/vault/restore-backup/:backupId', async (req, res) => {
+    try {
+      const { backupId } = req.params;
+      
+      const success = await vaultService.restoreFromBackup(backupId);
+      
+      if (success) {
+        res.json({ 
+          success: true, 
+          message: `Backup ${backupId} restored successfully` 
+        });
+      } else {
+        res.status(400).json({ 
+          success: false, 
+          error: `Failed to restore backup ${backupId}` 
+        });
+      }
+    } catch (error) {
+      logger.error('Failed to restore backup', error);
+      res.status(500).json({ 
+        error: 'Failed to restore backup', 
+        message: error.message 
+      });
+    }
+  });
+
+  // Enhanced AI service endpoints
+  app.get('/api/ai/vault-status', async (req, res) => {
+    try {
+      const vaultStatus = await aiService.getVaultStatus();
+      
+      res.json({
+        success: true,
+        data: vaultStatus
+      });
+    } catch (error) {
+      logger.error('Failed to get AI vault status', error);
+      res.status(500).json({ 
+        error: 'Failed to get AI vault status', 
+        message: error.message 
+      });
+    }
+  });
+
+  app.post('/api/ai/rotate-key/:provider', async (req, res) => {
+    try {
+      const { provider } = req.params;
+      
+      const success = await aiService.rotateApiKey(provider);
+      
+      if (success) {
+        res.json({ 
+          success: true, 
+          message: `AI API key for ${provider} rotated successfully` 
+        });
+      } else {
+        res.status(400).json({ 
+          success: false, 
+          error: `Failed to rotate AI API key for ${provider}` 
+        });
+      }
+    } catch (error) {
+      logger.error('Failed to rotate AI API key', error);
+      res.status(500).json({ 
+        error: 'Failed to rotate AI API key', 
+        message: error.message 
+      });
+    }
+  });
+
+  app.get('/api/ai/audit-log', async (req, res) => {
+    try {
+      const { limit = 50 } = req.query;
+      const auditLog = await aiService.getAuditLog(parseInt(limit));
+      
+      res.json({
+        success: true,
+        data: auditLog,
+        count: auditLog.length
+      });
+    } catch (error) {
+      logger.error('Failed to get AI audit log', error);
+      res.status(500).json({ 
+        error: 'Failed to get AI audit log', 
+        message: error.message 
+      });
+    }
+  });
+
   logger.info('Performance optimizations enabled:');
   logger.info('  • Streaming scanner with parallel processing');
   logger.info('  • Async job queue for large scans');

@@ -742,6 +742,46 @@ export class CKGService extends EventEmitter {
   }
 
   /**
+   * Get CKG service status
+   */
+  async getStatus() {
+    try {
+      const health = await this.health();
+      const stats = this.getServiceStats();
+      
+      return {
+        initialized: this.isInitialized,
+        health: health,
+        statistics: stats,
+        uptime: process.uptime(),
+        version: '1.0.0',
+        features: {
+          symbolicIndexing: true,
+          semanticChunking: true,
+          embeddings: true,
+          contextBuilding: true,
+          incrementalIndexing: true
+        }
+      };
+    } catch (error) {
+      return {
+        initialized: this.isInitialized,
+        health: { status: 'error', message: error.message },
+        statistics: {},
+        uptime: process.uptime(),
+        version: '1.0.0',
+        features: {
+          symbolicIndexing: false,
+          semanticChunking: false,
+          embeddings: false,
+          contextBuilding: false,
+          incrementalIndexing: false
+        }
+      };
+    }
+  }
+
+  /**
    * Get service statistics
    */
   getServiceStats() {

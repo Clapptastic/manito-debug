@@ -71,6 +71,26 @@ router.get('/health', async (req, res) => {
   }
 });
 
+// CKG Status Endpoint
+router.get('/status', async (req, res) => {
+  try {
+    const status = await ckgService.getStatus();
+    res.json({
+      status: 'ok',
+      message: 'CKG Service Status',
+      data: status,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    logger.error('CKG status check failed', { error: error.message });
+    res.status(500).json({
+      status: 'error',
+      message: 'CKG status check failed',
+      error: error.message
+    });
+  }
+});
+
 // Build Knowledge Graph
 router.post('/build', optionalAuth, async (req, res) => {
   try {

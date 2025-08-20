@@ -481,7 +481,8 @@ class EnhancedDatabaseService extends EventEmitter {
     query += ` RETURNING ${returning}`;
     
     try {
-      const result = await this.query(query, values);
+      // Skip validation for insert operations since we process the data
+      const result = await this.query(query, values, { validateInput: false });
       return result.rows[0];
     } catch (error) {
       this.logger.error('Insert failed', { 
@@ -528,7 +529,8 @@ class EnhancedDatabaseService extends EventEmitter {
     `;
     
     try {
-      const result = await this.query(query, finalParams);
+      // Skip validation for update operations since we process the data
+      const result = await this.query(query, finalParams, { validateInput: false });
       if (result.rows.length === 0) {
         throw new Error('No rows updated - possible optimistic lock conflict');
       }

@@ -130,7 +130,7 @@ export const apiRateLimit = rateLimit({
     if (req.user) {
       return req.user.role === 'admin' ? 1000 : 100; // Higher limits for authenticated users
     }
-    return 1000; // Higher limit for development
+    return 10000; // Much higher limit for development/testing
   },
   message: {
     error: 'Too many requests',

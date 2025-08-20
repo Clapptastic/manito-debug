@@ -38,6 +38,7 @@ const AIProviderConfig = ({ className = '' }) => {
     }
   }, [isOpen]);
 
+  const [providers, setProviders] = useState({});
   const [apiKeys, setApiKeys] = useState({
     openai: '',
     anthropic: '',
@@ -45,40 +46,134 @@ const AIProviderConfig = ({ className = '' }) => {
   });
   const [selectedProvider, setSelectedProvider] = useState('openai');
   const [testResults, setTestResults] = useState({});
+  const [isLoading, setIsLoading] = useState(false);
+  const [vaultStatus, setVaultStatus] = useState(null);
+  const [storedKeys, setStoredKeys] = useState([]);
   const toast = useToast();
   const queryClient = useQueryClient();
 
-  // Fetch AI providers
-  const providersQuery = useQuery({
-    queryKey: ['ai-providers'],
-    queryFn: async () => {
+  useEffect(() => {
+    if (isOpen) {
+      loadProviders();
+      loadVaultStatus();
+      loadStoredKeys();
+    }
+  }, [isOpen]);
+
+  const loadProviders = async () => {
+    try {
       const response = await fetch('/api/ai/providers');
       const data = await response.json();
-      return data.success ? data.providers : {};
-    },
-    staleTime: 30000,
-  });
+      setProviders(data);
+    } catch (error) {
+      console.error('Failed to load providers:', error);
+    }
+  };
 
-  // Update AI settings mutation
-  const updateSettingsMutation = useMutation({
-    mutationFn: async (settings) => {
+  const loadVaultStatus = async () => {
+    try {
+      const response = await fetch('/api/vault/status');
+      const data = await response.json();
+      setVaultStatus(data);
+    } catch (error) {
+      console.error('Failed to load vault status:', error);
+      setVaultStatus({ initialized: false, health: { status: 'error' } });
+    }
+  };
+
+  const loadStoredKeys = async () => {
+    try {
+      const response = await fetch('/api/vault/keys');
+      const data = await response.json();
+      setStoredKeys(data.providers || []);
+    } catch (error) {
+      console.error('Failed to load stored keys:', error);
+      setStoredKeys([]);
+    }
+  };
+
+  const handleSave = async () => {
+    setIsLoading(true);
+    try {
       const response = await fetch('/api/ai/settings', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(settings),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          aiApiKeys: apiKeys,
+          aiProvider: selectedProvider
+        }),
       });
-      const data = await response.json();
-      if (!data.success) throw new Error(data.error || 'Failed to update settings');
-      return data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries(['ai-providers']);
-      toast.success('AI settings updated successfully!');
-    },
-    onError: (error) => {
-      toast.error(`Failed to update settings: ${error.message}`);
-    },
-  });
+
+      const result = await response.json();
+      
+      if (result.success) {
+        // Reload data to reflect changes
+        await loadProviders();
+        await loadStoredKeys();
+        
+        // Show success message
+        if (result.vaultEnabled) {
+          toast.success('API keys saved securely to vault');
+        } else {
+          toast.success('API keys saved (vault not available)');
+        }
+      } else {
+        toast.error(result.error || 'Failed to save API keys');
+      }
+    } catch (error) {
+      console.error('Failed to save API keys:', error);
+      toast.error('Failed to save API keys');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleDeleteKey = async (provider) => {
+    try {
+      const response = await fetch(`/api/vault/keys/${provider}`, {
+        method: 'DELETE',
+      });
+
+      const result = await response.json();
+      
+      if (result.success) {
+        await loadStoredKeys();
+        toast.success(`API key for ${provider} deleted`);
+      } else {
+        toast.error(result.error || 'Failed to delete API key');
+      }
+    } catch (error) {
+      console.error('Failed to delete API key:', error);
+      toast.error('Failed to delete API key');
+    }
+  };
+
+  const handleDeleteAllKeys = async () => {
+    if (!confirm('Are you sure you want to delete all stored API keys?')) {
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/vault/keys', {
+        method: 'DELETE',
+      });
+
+      const result = await response.json();
+      
+      if (result.success) {
+        await loadStoredKeys();
+        setApiKeys({ openai: '', anthropic: '', google: '' });
+        toast.success('All API keys deleted');
+      } else {
+        toast.error(result.error || 'Failed to delete API keys');
+      }
+    } catch (error) {
+      console.error('Failed to delete API keys:', error);
+      toast.error('Failed to delete API keys');
+    }
+  };
 
   // Test AI connection mutation
   const testConnectionMutation = useMutation({
@@ -112,18 +207,12 @@ const AIProviderConfig = ({ className = '' }) => {
   });
 
   const handleSaveSettings = () => {
-    updateSettingsMutation.mutate({
-      aiApiKeys: apiKeys,
-      aiProvider: selectedProvider
-    });
+    handleSave();
   };
 
   const handleTestConnection = (provider) => {
     testConnectionMutation.mutate(provider);
   };
-
-  const providers = providersQuery.data || {};
-  const isLoading = providersQuery.isLoading;
 
   const providerConfigs = [
     {
@@ -287,7 +376,18 @@ const AIProviderConfig = ({ className = '' }) => {
 
               {/* Provider Status */}
               <div className="p-4 sm:p-6 border-b border-gray-700">
-                <h3 className="text-base sm:text-lg font-medium text-white mb-4">Provider Status</h3>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-base sm:text-lg font-medium text-white">Provider Status</h3>
+                  {vaultStatus && (
+                    <div className="flex items-center space-x-2">
+                      <div className={`w-2 h-2 rounded-full ${vaultStatus.initialized ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                      <span className="text-xs sm:text-sm text-gray-400">
+                        Vault: {vaultStatus.initialized ? 'Secure' : 'Not Available'}
+                      </span>
+                    </div>
+                  )}
+                </div>
+                
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
                   {providerConfigs.map((provider) => (
                     <div key={provider.id} className="p-3 sm:p-4 bg-gray-800 rounded-lg border border-gray-700">
@@ -308,9 +408,42 @@ const AIProviderConfig = ({ className = '' }) => {
                           : 'Provider not configured or unavailable'
                         }
                       </div>
+                      {storedKeys.includes(provider.id) && (
+                        <div className="mt-2 flex items-center space-x-2">
+                          <div className="w-1.5 h-1.5 rounded-full bg-blue-500"></div>
+                          <span className="text-xs text-blue-400">Securely stored</span>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
+
+                {storedKeys.length > 0 && (
+                  <div className="mt-4 p-4 bg-gray-800 rounded-lg border border-gray-700">
+                    <div className="flex items-center justify-between mb-3">
+                      <h4 className="text-sm sm:text-base font-medium text-gray-200">Stored API Keys</h4>
+                      <button
+                        onClick={handleDeleteAllKeys}
+                        className="text-red-400 hover:text-red-300 text-xs sm:text-sm"
+                      >
+                        Delete All
+                      </button>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {storedKeys.map((provider) => (
+                        <div key={provider} className="flex items-center space-x-2 bg-gray-700 rounded px-3 py-1">
+                          <span className="text-xs sm:text-sm text-gray-300 capitalize">{provider}</span>
+                          <button
+                            onClick={() => handleDeleteKey(provider)}
+                            className="text-red-400 hover:text-red-300 text-xs"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -324,11 +457,11 @@ const AIProviderConfig = ({ className = '' }) => {
               </button>
               <button
                 onClick={handleSaveSettings}
-                disabled={updateSettingsMutation.isLoading}
+                disabled={isLoading}
                 className="w-full sm:w-auto flex items-center justify-center space-x-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 text-white rounded-lg transition-colors text-sm"
               >
                 <Save className="w-4 h-4" />
-                <span>{updateSettingsMutation.isLoading ? 'Saving...' : 'Save Settings'}</span>
+                <span>{isLoading ? 'Saving...' : 'Save Settings'}</span>
               </button>
             </div>
           </div>

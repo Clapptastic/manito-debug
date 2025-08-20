@@ -551,7 +551,19 @@ function AppContent() {
                 {selectedTab === 'metrics' && (
                   <div className="h-full">
                     <IntelligentMetricsVisualization
-                      metricsData={scanResults}
+                      metricsData={{
+                        complexity: scanResults.complexity || 0,
+                        coupling: scanResults.coupling || 0,
+                        cohesion: scanResults.cohesion || 0,
+                        testCoverage: scanResults.testCoverage || 0,
+                        dependencies: scanResults.dependencies?.length || 0,
+                        technicalDebt: scanResults.conflicts?.length || 0,
+                        buildTime: scanResults.buildTime || 0,
+                        bundleSize: scanResults.bundleSize || 0,
+                        totalFiles: Object.keys(scanResults.files || {}).length,
+                        totalLines: Object.values(scanResults.files || {}).reduce((sum, file) => sum + (file.lines || 0), 0),
+                        conflicts: scanResults.conflicts?.length || 0
+                      }}
                       ckgStats={null} // Would be loaded from CKG API
                       viewMode="dashboard"
                       onMetricClick={(metric, value, status) => {

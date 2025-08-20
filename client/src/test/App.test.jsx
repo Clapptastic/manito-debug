@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, act } from '@testing-library/react'
 import App from '../App'
 
 // Mock the port config to avoid network calls in tests
@@ -28,19 +28,25 @@ vi.mock('../hooks/useWebSocket', () => ({
 }))
 
 describe('App', () => {
-  it('renders without crashing', () => {
-    render(<App />)
+  it('renders without crashing', async () => {
+    await act(async () => {
+      render(<App />)
+    })
     expect(screen.getByText('ManitoDebug')).toBeInTheDocument()
   })
 
-  it('displays the main application title', () => {
-    render(<App />)
+  it('displays the main application title', async () => {
+    await act(async () => {
+      render(<App />)
+    })
     const title = screen.getByText('ManitoDebug')
     expect(title).toBeInTheDocument()
   })
 
-  it('shows ready to analyze state when no scan results', () => {
-    render(<App />)
+  it('shows ready to analyze state when no scan results', async () => {
+    await act(async () => {
+      render(<App />)
+    })
     const readyText = screen.getByText('Ready to Analyze')
     expect(readyText).toBeInTheDocument()
   })

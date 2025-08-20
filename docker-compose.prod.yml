@@ -39,7 +39,7 @@ services:
       - POSTGRES_HOST=postgres
       - POSTGRES_DB=manito_prod
       - POSTGRES_PORT=5432
-      - REDIS_URL=redis://redis:6379
+      - REDIS_URL=redis://:manito_redis_password@redis:6379
     depends_on:
       - postgres
       - redis
@@ -97,15 +97,18 @@ services:
   redis:
     image: redis:7-alpine
     container_name: manito-redis-prod
+    command: redis-server --protected-mode no --bind 0.0.0.0 --port 6379 --requirepass manito_redis_password --maxmemory 256mb --maxmemory-policy allkeys-lru
     ports:
       - "6379:6379"
+    environment:
+      - REDIS_PASSWORD=manito_redis_password
     volumes:
       - redis_data:/data
     networks:
       - manito-network
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD", "redis-cli", "-a", "manito_redis_password", "ping"]
       interval: 30s
       timeout: 10s
       retries: 3

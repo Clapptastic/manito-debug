@@ -1,60 +1,216 @@
 import OpenAI from 'openai';
 import Anthropic from '@anthropic-ai/sdk';
+import vaultService from './vault-service.js';
 
 class AIService {
   constructor() {
     this.providers = new Map();
-    this.initializeProviders();
+    this.vaultInitialized = false;
+    this.auditEnabled = true;
+    this.initializeVault();
   }
 
-  initializeProviders() {
+  async initializeVault() {
+    try {
+      await vaultService.initialize();
+      this.vaultInitialized = true;
+      console.log('Enhanced vault service initialized for AI service');
+      await this.loadApiKeysFromVault();
+      
+      // Log initialization
+      await this.logAuditEvent('AI_SERVICE_INITIALIZED', 'AI service initialized with enhanced vault', {
+        providers: Array.from(this.providers.keys()),
+        vaultInitialized: true
+      });
+    } catch (error) {
+      console.warn('Vault service not available, using environment variables:', error.message);
+      this.initializeProviders();
+      
+      await this.logAuditEvent('AI_SERVICE_FALLBACK', 'AI service using fallback configuration', {
+        error: error.message,
+        vaultInitialized: false
+      });
+    }
+  }
+
+  async logAuditEvent(eventType, message, metadata = {}) {
+    try {
+      if (this.vaultInitialized && this.auditEnabled) {
+        await vaultService.logAuditEvent(eventType, message, {
+          ...metadata,
+          service: 'ai',
+          timestamp: new Date().toISOString()
+        });
+      }
+    } catch (error) {
+      console.warn('Failed to log audit event:', error);
+    }
+  }
+
+  async loadApiKeysFromVault() {
+    try {
+      if (!this.vaultInitialized) {
+        this.initializeProviders();
+        return;
+      }
+
+      const apiKeys = await vaultService.getAllApiKeys('default');
+      this.initializeProviders(apiKeys);
+      
+      await this.logAuditEvent('API_KEYS_LOADED', 'API keys loaded from vault', {
+        keyCount: Object.keys(apiKeys).length,
+        providers: Object.keys(apiKeys)
+      });
+    } catch (error) {
+      console.error('Failed to load API keys from vault:', error);
+      this.initializeProviders();
+      
+      await this.logAuditEvent('API_KEYS_LOAD_FAILED', 'Failed to load API keys from vault', {
+        error: error.message
+      });
+    }
+  }
+
+  initializeProviders(apiKeys = null) {
     // Clear existing providers
     this.providers.clear();
     
     // OpenAI Provider
-    if (process.env.OPENAI_API_KEY) {
+    const openaiKey = apiKeys?.openai || process.env.OPENAI_API_KEY;
+    if (openaiKey) {
       const openai = new OpenAI({
-        apiKey: process.env.OPENAI_API_KEY,
+        apiKey: openaiKey,
       });
       
       this.providers.set('openai', {
         name: 'OpenAI GPT',
         client: openai,
         model: process.env.OPENAI_MODEL || 'gpt-3.5-turbo',
-        handler: this.handleOpenAI.bind(this)
+        handler: this.handleOpenAI.bind(this),
+        keyRotationEnabled: true
       });
     }
 
     // Claude Provider (Anthropic)
-    if (process.env.ANTHROPIC_API_KEY) {
+    const anthropicKey = apiKeys?.anthropic || process.env.ANTHROPIC_API_KEY;
+    if (anthropicKey) {
       const anthropic = new Anthropic({
-        apiKey: process.env.ANTHROPIC_API_KEY,
+        apiKey: anthropicKey,
       });
       
       this.providers.set('anthropic', {
         name: 'Claude',
         client: anthropic,
         model: process.env.ANTHROPIC_MODEL || 'claude-3-haiku-20240307',
-        handler: this.handleClaude.bind(this)
+        handler: this.handleClaude.bind(this),
+        keyRotationEnabled: true
       });
     }
 
     // Google AI Provider (placeholder for future implementation)
-    if (process.env.GOOGLE_API_KEY) {
+    const googleKey = apiKeys?.google || process.env.GOOGLE_API_KEY;
+    if (googleKey) {
       this.providers.set('google', {
         name: 'Google AI',
         model: 'gemini-pro',
-        handler: this.handleGoogle.bind(this)
+        handler: this.handleGoogle.bind(this),
+        keyRotationEnabled: true
       });
     }
 
     // Local Provider (fallback)
     this.providers.set('local', {
       name: 'Local AI',
-      handler: this.handleLocal.bind(this)
+      handler: this.handleLocal.bind(this),
+      keyRotationEnabled: false
     });
 
     console.log(`AI Service initialized with providers: ${Array.from(this.providers.keys()).join(', ')}`);
+  }
+
+  async updateApiKeys(apiKeys) {
+    try {
+      if (!this.vaultInitialized) {
+        // Fallback to environment variables
+        if (apiKeys.openai) process.env.OPENAI_API_KEY = apiKeys.openai;
+        if (apiKeys.anthropic) process.env.ANTHROPIC_API_KEY = apiKeys.anthropic;
+        if (apiKeys.google) process.env.GOOGLE_API_KEY = apiKeys.google;
+        this.initializeProviders();
+        
+        await this.logAuditEvent('API_KEYS_UPDATED_FALLBACK', 'API keys updated using fallback method', {
+          providers: Object.keys(apiKeys)
+        });
+        return;
+      }
+
+      // Store keys in vault with enhanced security
+      for (const [provider, key] of Object.entries(apiKeys)) {
+        if (key) {
+          await vaultService.storeApiKey('default', provider, key, {
+            enableRotation: true,
+            rotationDays: 90
+          });
+          
+          // Set up key rotation schedule
+          if (this.providers.get(provider)?.keyRotationEnabled) {
+            await vaultService.setKeyRotationSchedule(provider, 90);
+          }
+        }
+      }
+
+      // Reinitialize providers with new keys
+      await this.loadApiKeysFromVault();
+      
+      await this.logAuditEvent('API_KEYS_UPDATED_VAULT', 'API keys updated in vault with rotation', {
+        providers: Object.keys(apiKeys),
+        rotationEnabled: true
+      });
+      
+      console.log('API keys updated successfully with enhanced security');
+    } catch (error) {
+      console.error('Failed to update API keys:', error);
+      
+      await this.logAuditEvent('API_KEYS_UPDATE_FAILED', 'Failed to update API keys', {
+        error: error.message
+      });
+      
+      throw error;
+    }
+  }
+
+  async testConnection(provider = 'local') {
+    try {
+      if (!this.providers.has(provider)) {
+        throw new Error(`Provider '${provider}' is not available`);
+      }
+
+      const testMessage = 'Test connection';
+      const result = await this.sendMessage(testMessage, null, provider);
+      
+      await this.logAuditEvent('CONNECTION_TEST', `Connection test successful for ${provider}`, {
+        provider,
+        success: true
+      });
+      
+      return {
+        success: true,
+        provider,
+        response: result.response,
+        timestamp: new Date().toISOString()
+      };
+    } catch (error) {
+      await this.logAuditEvent('CONNECTION_TEST_FAILED', `Connection test failed for ${provider}`, {
+        provider,
+        error: error.message
+      });
+      
+      return {
+        success: false,
+        provider,
+        error: error.message,
+        timestamp: new Date().toISOString()
+      };
+    }
   }
 
   async sendMessage(message, context = null, provider = 'local') {
@@ -63,9 +219,26 @@ class AIService {
     }
 
     const providerConfig = this.providers.get(provider);
+    const startTime = Date.now();
     
     try {
+      // Log message request
+      await this.logAuditEvent('MESSAGE_REQUEST', `Message sent to ${provider}`, {
+        provider,
+        messageLength: message.length,
+        hasContext: !!context
+      });
+      
       const result = await providerConfig.handler(message, context, providerConfig);
+      const processingTime = Date.now() - startTime;
+      
+      // Log successful response
+      await this.logAuditEvent('MESSAGE_RESPONSE', `Response received from ${provider}`, {
+        provider,
+        processingTime,
+        responseLength: result.response.length,
+        confidence: result.confidence
+      });
       
       return {
         id: `ai_${Date.now()}`,
@@ -74,9 +247,19 @@ class AIService {
         suggestions: result.suggestions || [],
         confidence: result.confidence || 0.8,
         timestamp: new Date().toISOString(),
-        model: providerConfig.model || 'unknown'
+        model: providerConfig.model || 'unknown',
+        processingTime
       };
     } catch (error) {
+      const processingTime = Date.now() - startTime;
+      
+      // Log error
+      await this.logAuditEvent('MESSAGE_ERROR', `Error from ${provider}`, {
+        provider,
+        error: error.message,
+        processingTime
+      });
+      
       console.error(`AI Provider Error (${provider}):`, error);
       throw new Error(`AI provider '${provider}' failed: ${error.message}`);
     }
@@ -138,69 +321,48 @@ class AIService {
     // Placeholder implementation for Google AI
     // In a real implementation, you would integrate with Google's AI API
     await new Promise(resolve => setTimeout(resolve, 500)); // Simulate processing
-
+    
     return {
-      response: `Google AI integration is not yet implemented. This is a placeholder response for: "${message}"`,
-      suggestions: [
-        'Google AI integration coming soon',
-        'Consider using OpenAI or Claude for now',
-        'Check back later for Google AI support'
-      ],
-      confidence: 0.5
+      response: `Google AI response to: ${message}`,
+      suggestions: ['Implement Google AI integration'],
+      confidence: 0.7
     };
   }
 
   async handleLocal(message, context) {
-    // Enhanced mock with context-aware responses
-    await new Promise(resolve => setTimeout(resolve, 800)); // Simulate processing
-
-    let response = '';
-    let suggestions = [];
-
-    if (context && context.files) {
-      const stats = this.analyzeCodeContext(context);
-      response = this.generateContextualResponse(message, stats);
-      suggestions = this.generateContextualSuggestions(stats);
-    } else {
-      response = this.generateGenericResponse(message);
-      suggestions = [
-        'Run a code scan to get more detailed analysis',
-        'Consider adding type annotations for better code clarity',
-        'Review error handling patterns across your codebase'
-      ];
-    }
-
+    // Local AI implementation with rule-based responses
+    await new Promise(resolve => setTimeout(resolve, 200)); // Simulate processing
+    
+    const responses = {
+      'hello': 'Hello! I\'m your local AI assistant. How can I help you with your code analysis?',
+      'help': 'I can help you analyze code, identify issues, and provide suggestions. Try asking me about specific code problems or patterns.',
+      'default': `I understand you're asking about: "${message}". As a local AI, I can provide basic code analysis and suggestions. For more advanced features, consider using OpenAI or Claude providers.`
+    };
+    
+    const response = responses[message.toLowerCase()] || responses.default;
+    
     return {
       response,
-      suggestions,
-      confidence: Math.random() * 0.3 + 0.6 // 0.6 to 0.9
+      suggestions: ['Use external AI providers for more advanced analysis'],
+      confidence: 0.6
     };
   }
 
   buildSystemPrompt(context) {
-    let prompt = `You are Manito, an expert AI code analysis assistant. Your role is to help developers understand their codebase, identify potential improvements, and provide actionable insights.
+    let prompt = `You are an expert code analyst and debugging assistant. Your role is to help developers analyze code, identify issues, and provide actionable suggestions for improvement.
 
-Guidelines:
-- Provide clear, actionable recommendations
-- Focus on code quality, security, performance, and maintainability
-- Use markdown formatting for better readability
-- Be concise but thorough
-- Always include specific suggestions when possible
+Key capabilities:
+- Code analysis and review
+- Bug identification and debugging
+- Performance optimization suggestions
+- Security vulnerability detection
+- Code quality improvement recommendations
+- Best practices guidance
 
-`;
+Please provide clear, actionable advice with specific examples when possible.`;
 
-    if (context && context.files) {
-      const stats = this.analyzeCodeContext(context);
-      prompt += `Current codebase context:
-- Files analyzed: ${stats.fileCount}
-- Total lines of code: ${stats.totalLines}
-- Average complexity: ${stats.avgComplexity.toFixed(1)}
-- Issues found: ${stats.issueCount}
-- Primary languages: ${stats.languages.join(', ')}
-- Large files (>200 lines): ${stats.largeFiles}
-- High complexity files: ${stats.complexFiles}
-
-`;
+    if (context) {
+      prompt += `\n\nContext: ${JSON.stringify(context, null, 2)}`;
     }
 
     return prompt;
@@ -208,325 +370,173 @@ Guidelines:
 
   buildUserMessage(message, context) {
     let userMessage = message;
-
-    if (context && context.files && message.includes('analyze') || message.includes('review')) {
-      // Add relevant code snippets or file information
-      const recentFiles = context.files.slice(0, 3);
-      userMessage += `\n\nRecent files in context:\n`;
-      recentFiles.forEach(file => {
-        userMessage += `- ${file.filePath}: ${file.lines} lines, complexity: ${file.complexity}\n`;
-      });
+    
+    if (context && context.code) {
+      userMessage += `\n\nCode to analyze:\n\`\`\`\n${context.code}\n\`\`\``;
     }
-
+    
+    if (context && context.language) {
+      userMessage += `\n\nLanguage: ${context.language}`;
+    }
+    
     return userMessage;
   }
 
-  analyzeCodeContext(context) {
-    const files = context.files || [];
-    const conflicts = context.conflicts || [];
-
-    return {
-      fileCount: files.length,
-      totalLines: files.reduce((sum, f) => sum + (f.lines || 0), 0),
-      avgComplexity: files.length > 0 ? files.reduce((sum, f) => sum + (f.complexity || 0), 0) / files.length : 0,
-      issueCount: conflicts.length,
-      languages: [...new Set(files.map(f => {
-        if (f.filePath.endsWith('.jsx') || f.filePath.endsWith('.tsx')) return 'React';
-        if (f.filePath.endsWith('.js')) return 'JavaScript';
-        if (f.filePath.endsWith('.ts')) return 'TypeScript';
-        return 'Unknown';
-      }))],
-      largeFiles: files.filter(f => (f.lines || 0) > 200).length,
-      complexFiles: files.filter(f => (f.complexity || 0) > 5).length
-    };
-  }
-
-  generateContextualResponse(message, stats) {
-    const responses = [
-      `Based on your codebase analysis (${stats.fileCount} files, ${stats.totalLines} LOC), here are my insights:\n\n**Code Health Overview:**\n- Average complexity: ${stats.avgComplexity.toFixed(1)} (${stats.avgComplexity > 5 ? 'could be optimized' : 'looks good'})\n- Large files: ${stats.largeFiles} files over 200 lines\n- Issues detected: ${stats.issueCount}\n\n**Key Recommendations:**\n${stats.complexFiles > 0 ? `- Consider refactoring ${stats.complexFiles} high-complexity files\n` : ''}${stats.largeFiles > 0 ? `- Break down ${stats.largeFiles} large files for better maintainability\n` : ''}${stats.issueCount > 0 ? `- Address ${stats.issueCount} identified issues\n` : '- No critical issues found! ✅\n'}`,
-      
-      `Great question! Looking at your ${stats.languages.join(' and ')} codebase:\n\n**Architecture Analysis:**\n- Codebase size: ${stats.fileCount} files, ${stats.totalLines} lines\n- Code complexity is ${stats.avgComplexity > 5 ? 'moderate to high' : 'well-managed'}\n\n**Improvement Opportunities:**\n${stats.avgComplexity > 3 ? '- Simplify complex functions where possible\n' : ''}${stats.issueCount > 2 ? '- Prioritize fixing structural issues\n' : ''}- Consider implementing automated testing\n- Add comprehensive documentation`,
-      
-      `Analyzing your request in context of your ${stats.totalLines}-line codebase...\n\n**Current State:**\n- Files: ${stats.fileCount} (${stats.largeFiles} large, ${stats.complexFiles} complex)\n- Primary tech: ${stats.languages.join(', ')}\n- Issues: ${stats.issueCount} found\n\n**My Assessment:**\n${message.toLowerCase().includes('performance') ? '- Performance optimization opportunities exist\n' : ''}${message.toLowerCase().includes('security') ? '- Security review recommended\n' : ''}${message.toLowerCase().includes('refactor') ? '- Several refactoring candidates identified\n' : ''}${message.toLowerCase().includes('clean') ? '- Code cleanup will improve maintainability\n' : ''}- Overall code health: ${stats.avgComplexity < 3 && stats.issueCount < 5 ? 'Good' : stats.avgComplexity < 5 && stats.issueCount < 10 ? 'Fair' : 'Needs attention'}`
-    ];
-
-    return responses[Math.floor(Math.random() * responses.length)];
-  }
-
-  generateContextualSuggestions(stats) {
-    const suggestions = [];
-
-    if (stats.complexFiles > 0) {
-      suggestions.push(`Refactor ${stats.complexFiles} high-complexity files for better maintainability`);
-    }
-    
-    if (stats.largeFiles > 0) {
-      suggestions.push(`Consider splitting ${stats.largeFiles} large files into smaller modules`);
-    }
-    
-    if (stats.issueCount > 5) {
-      suggestions.push('Address circular dependencies and architectural issues');
-    }
-    
-    if (stats.avgComplexity > 4) {
-      suggestions.push('Implement consistent error handling patterns');
-    }
-
-    // Add language-specific suggestions
-    if (stats.languages.includes('JavaScript') || stats.languages.includes('TypeScript')) {
-      suggestions.push('Consider migrating to TypeScript for better type safety');
-    }
-    
-    if (stats.languages.includes('React')) {
-      suggestions.push('Review component composition and state management patterns');
-    }
-
-    // Always include a few general suggestions
-    suggestions.push('Add comprehensive unit tests');
-    suggestions.push('Implement automated code quality checks');
-
-    return suggestions.slice(0, 4); // Limit to 4 suggestions
-  }
-
-  generateGenericResponse(message) {
-    const responses = [
-      `I'd be happy to help with that! However, I'd be able to provide much more specific and valuable insights if you run a code scan first. This would give me context about your codebase structure, complexity, and potential areas for improvement.
-
-In the meantime, here are some general thoughts on your question: "${message}"`,
-
-      `That's a great question about code analysis! While I can provide general guidance, running a scan of your codebase would allow me to give you much more targeted and actionable advice.
-
-For now, regarding "${message}", I can offer some general best practices:`,
-
-      `I understand you're asking about "${message}". To give you the most helpful and specific recommendations, I'd recommend running a code scan first so I can analyze your actual codebase.
-
-Here are some general principles that might help:`
-    ];
-
-    return responses[Math.floor(Math.random() * responses.length)];
-  }
-
   extractSuggestions(response) {
+    // Extract suggestions from AI response
     const suggestions = [];
-    
-    // Extract bullet points and numbered lists as suggestions
     const lines = response.split('\n');
+    
     for (const line of lines) {
-      const trimmed = line.trim();
-      if (trimmed.startsWith('- ') || trimmed.match(/^\d+\./)) {
-        const suggestion = trimmed.replace(/^[-*]\s*/, '').replace(/^\d+\.\s*/, '');
-        if (suggestion.length > 10 && suggestion.length < 100) {
+      const trimmedLine = line.trim();
+      if (trimmedLine.startsWith('•') || trimmedLine.startsWith('-') || trimmedLine.startsWith('*')) {
+        const suggestion = trimmedLine.replace(/^[•\-\*]\s*/, '').trim();
+        if (suggestion) {
           suggestions.push(suggestion);
         }
       }
     }
-
-    return suggestions.slice(0, 4); // Limit to 4 suggestions
+    
+    return suggestions.slice(0, 5); // Limit to 5 suggestions
   }
 
   calculateConfidence(completion) {
-    // Basic confidence calculation based on response quality
-    const choice = completion.choices[0];
-    if (!choice) return 0.5;
-
-    const responseLength = choice.message?.content?.length || 0;
-    const finishReason = choice.finish_reason;
-
-    let confidence = 0.7; // Base confidence
-
-    // Adjust based on completion quality
-    if (finishReason === 'stop') confidence += 0.1;
-    if (responseLength > 100) confidence += 0.1;
-    if (responseLength > 300) confidence += 0.1;
-
-    return Math.min(confidence, 0.95);
+    // Calculate confidence based on OpenAI response
+    if (completion.choices && completion.choices[0]) {
+      const choice = completion.choices[0];
+      let confidence = 0.8; // Base confidence
+      
+      if (choice.finish_reason === 'stop') {
+        confidence += 0.1;
+      }
+      
+      if (choice.message && choice.message.content) {
+        const content = choice.message.content;
+        if (content.length > 50) {
+          confidence += 0.05;
+        }
+        if (content.includes('suggestion') || content.includes('recommend')) {
+          confidence += 0.05;
+        }
+      }
+      
+      return Math.min(confidence, 1.0);
+    }
+    
+    return 0.8;
   }
 
   calculateClaudeConfidence(completion) {
-    // Claude-specific confidence calculation
-    if (!completion.content || !completion.content[0]) return 0.5;
-
-    const responseLength = completion.content[0].text?.length || 0;
-    const stopReason = completion.stop_reason;
-
-    let confidence = 0.75; // Base confidence for Claude
-
-    // Adjust based on completion quality
-    if (stopReason === 'end_turn') confidence += 0.1;
-    if (responseLength > 100) confidence += 0.1;
-    if (responseLength > 300) confidence += 0.1;
-
-    return Math.min(confidence, 0.95);
+    // Calculate confidence based on Claude response
+    if (completion.content && completion.content[0]) {
+      const content = completion.content[0];
+      let confidence = 0.8; // Base confidence
+      
+      if (content.type === 'text') {
+        confidence += 0.1;
+      }
+      
+      if (content.text && content.text.length > 50) {
+        confidence += 0.05;
+      }
+      
+      return Math.min(confidence, 1.0);
+    }
+    
+    return 0.8;
   }
 
   getAvailableProviders() {
-    const providers = {};
-    
-    for (const [key, provider] of this.providers) {
-      providers[key] = {
-        id: key,
-        name: provider.name,
-        available: true,
-        configured: true
-      };
-    }
-    
-    return providers;
+    return Array.from(this.providers.entries()).map(([key, provider]) => ({
+      id: key,
+      name: provider.name,
+      model: provider.model || 'unknown',
+      keyRotationEnabled: provider.keyRotationEnabled || false
+    }));
   }
 
-  // Test connection for a specific provider
-  async testConnection(providerName) {
+  async getVaultStatus() {
     try {
-      if (!this.providers.has(providerName)) {
+      if (!this.vaultInitialized) {
         return {
-          success: false,
-          error: `Provider '${providerName}' is not available`
+          initialized: false,
+          message: 'Vault service not available'
         };
       }
 
-      const provider = this.providers.get(providerName);
-      
-      // Test based on provider type
-      switch (providerName) {
-        case 'openai':
-          return await this.testOpenAIConnection(provider);
-        case 'anthropic':
-        case 'claude':
-          return await this.testClaudeConnection(provider);
-        case 'google':
-          return await this.testGoogleConnection(provider);
-        case 'local':
-          return {
-            success: true,
-            details: 'Local AI provider is always available'
-          };
-        default:
-          return {
-            success: false,
-            error: `Unknown provider: ${providerName}`
-          };
-      }
+      const health = await vaultService.healthCheck();
+      const rotationSchedule = await vaultService.getKeyRotationSchedule();
+      const auditLog = await vaultService.getAuditLog(10); // Last 10 entries
+
+      return {
+        initialized: true,
+        health,
+        rotationSchedule,
+        recentAuditLog: auditLog,
+        providers: this.getAvailableProviders()
+      };
     } catch (error) {
       return {
-        success: false,
+        initialized: false,
         error: error.message
       };
     }
   }
 
-  async testOpenAIConnection(provider) {
+  async rotateApiKey(provider) {
     try {
-      // Test with a simple completion
-      const completion = await provider.client.chat.completions.create({
-        model: 'gpt-3.5-turbo',
-        messages: [
-          { role: 'user', content: 'Hello, this is a connection test.' }
-        ],
-        max_tokens: 10,
-        temperature: 0
-      });
+      if (!this.vaultInitialized) {
+        throw new Error('Vault service not available');
+      }
 
-      return {
-        success: true,
-        details: `OpenAI connection successful. Model: ${provider.model}`
-      };
-    } catch (error) {
-      return {
-        success: false,
-        error: `OpenAI connection failed: ${error.message}`
-      };
-    }
-  }
-
-  async testClaudeConnection(provider) {
-    try {
-      // Test with a simple message
-      const completion = await provider.client.messages.create({
-        model: 'claude-3-haiku-20240307',
-        max_tokens: 10,
-        temperature: 0,
-        messages: [
-          {
-            role: 'user',
-            content: 'Hello, this is a connection test.'
-          }
-        ]
-      });
-
-      return {
-        success: true,
-        details: `Claude connection successful. Model: ${provider.model}`
-      };
-    } catch (error) {
-      return {
-        success: false,
-        error: `Claude connection failed: ${error.message}`
-      };
-    }
-  }
-
-  async testGoogleConnection(provider) {
-    try {
-      // For Google AI, we'll return a mock success since we don't have the actual implementation
-      // In a real implementation, you would test the Google AI API here
-      return {
-        success: true,
-        details: 'Google AI connection test (mock) - implement actual Google AI API integration'
-      };
-    } catch (error) {
-      return {
-        success: false,
-        error: `Google AI connection failed: ${error.message}`
-      };
-    }
-  }
-
-  // Health check method
-  async getHealth() {
-    try {
-      const providers = {};
-      let hasValidProvider = false;
+      const success = await vaultService.rotateApiKey(provider, 'default');
       
-      // Check each provider
-      for (const [name, provider] of this.providers) {
-        try {
-          // Test provider availability - handle providers without testConnection
-          let isAvailable = false;
-          if (typeof provider.testConnection === 'function') {
-            isAvailable = await provider.testConnection();
-          } else {
-            // For providers without testConnection, assume they're available if they exist
-            isAvailable = provider && typeof provider === 'object';
-          }
-          
-          providers[name] = {
-            available: isAvailable,
-            configured: true
-          };
-          if (isAvailable) {
-            hasValidProvider = true;
-          }
-        } catch (error) {
-          providers[name] = {
-            available: false,
-            configured: true,
-            error: error.message
-          };
-        }
+      if (success) {
+        // Reload API keys after rotation
+        await this.loadApiKeysFromVault();
+        
+        await this.logAuditEvent('API_KEY_ROTATED', `API key rotated for ${provider}`, {
+          provider,
+          success: true
+        });
       }
       
-      return {
-        status: hasValidProvider ? 'ok' : 'error',
-        providers,
-        message: hasValidProvider ? 'AI service is operational' : 'No valid AI providers available'
-      };
+      return success;
     } catch (error) {
-      return {
-        status: 'error',
-        providers: {},
-        error: error.message,
-        message: 'AI service health check failed'
-      };
+      await this.logAuditEvent('API_KEY_ROTATION_FAILED', `Failed to rotate API key for ${provider}`, {
+        provider,
+        error: error.message
+      });
+      
+      throw error;
+    }
+  }
+
+  async getAuditLog(limit = 50) {
+    try {
+      if (!this.vaultInitialized) {
+        return [];
+      }
+
+      return await vaultService.getAuditLog(limit);
+    } catch (error) {
+      console.error('Failed to get audit log:', error);
+      return [];
+    }
+  }
+
+  // Cleanup method for graceful shutdown
+  async cleanup() {
+    try {
+      await this.logAuditEvent('AI_SERVICE_SHUTDOWN', 'AI service shutting down');
+      
+      if (this.vaultInitialized) {
+        await vaultService.cleanup();
+      }
+      
+      console.log('AI service cleanup completed');
+    } catch (error) {
+      console.error('AI service cleanup failed:', error);
     }
   }
 }
