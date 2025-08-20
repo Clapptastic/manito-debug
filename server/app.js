@@ -20,6 +20,7 @@ import Scan from './models/Scan.js';
 import User from './models/User.js';
 import authRoutes from './routes/auth.js';
 import ckgRoutes from './api/ckg-api.js';
+import userFlowRoutes from './api/user-flow-api.js';
 import { authenticate, optionalAuth, apiRateLimit, userContext } from './middleware/auth.js';
 import StreamingScanner from './services/scanner.js';
 import scanQueue from './services/scanQueue.js';
@@ -180,6 +181,9 @@ app.use('/api/auth', authRoutes);
 
 // Code Knowledge Graph routes
 app.use('/api/ckg', ckgRoutes);
+
+// User Flow routes
+app.use('/api/flows', userFlowRoutes);
 
 // API Routes
   // Health check endpoint
@@ -1050,6 +1054,45 @@ app.post('/api/ai/settings', async (req, res) => {
   }
 });
 
+// AI test connection endpoint
+app.post('/api/ai/test-connection', async (req, res) => {
+  try {
+    const { provider } = req.body;
+    
+    if (!provider) {
+      return res.status(400).json({ error: 'Provider is required' });
+    }
+    
+    // Test the specific provider
+    const result = await aiService.testConnection(provider);
+    
+    if (result.success) {
+      logger.info(`AI connection test successful for ${provider}`);
+      res.json({ 
+        success: true, 
+        message: `${provider} connection test successful`,
+        provider,
+        details: result.details
+      });
+    } else {
+      logger.warn(`AI connection test failed for ${provider}`, result.error);
+      res.json({ 
+        success: false, 
+        error: result.error,
+        provider
+      });
+    }
+    
+  } catch (error) {
+    logger.error('Failed to test AI connection', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Failed to test connection', 
+      message: error.message 
+    });
+  }
+});
+
 // Semantic Search API endpoints
 app.get('/api/search', async (req, res) => {
   try {
@@ -1460,6 +1503,34 @@ app.get('/api/projects', async (req, res) => {
   }
 });
 
+app.post('/api/projects', async (req, res) => {
+  try {
+    const { name, path, description } = req.body;
+    
+    if (!name || !name.trim()) {
+      return res.status(400).json({ error: 'Project name is required' });
+    }
+    
+    const projectData = {
+      name: name.trim(),
+      path: path ? path.trim() : null,
+      description: description ? description.trim() : null,
+      user_id: req.user ? req.user.id : null
+    };
+    
+    const project = await Project.create(projectData);
+    
+    res.status(201).json({ 
+      success: true, 
+      data: project,
+      message: 'Project created successfully'
+    });
+  } catch (error) {
+    logger.error('Failed to create project', error);
+    res.status(500).json({ error: 'Failed to create project', message: error.message });
+  }
+});
+
 app.get('/api/projects/:id', async (req, res) => {
   try {
     const project = await Project.findById(req.params.id);
@@ -1470,6 +1541,23 @@ app.get('/api/projects/:id', async (req, res) => {
   } catch (error) {
     logger.error('Failed to get project', error);
     res.status(500).json({ error: 'Failed to get project', message: error.message });
+  }
+});
+
+app.delete('/api/projects/:id', async (req, res) => {
+  try {
+    const project = await Project.findById(req.params.id);
+    if (!project) {
+      return res.status(404).json({ error: 'Project not found' });
+    }
+    
+    // Delete the project and all related data
+    await project.delete();
+    
+    res.json({ success: true, message: 'Project deleted successfully' });
+  } catch (error) {
+    logger.error('Failed to delete project', error);
+    res.status(500).json({ error: 'Failed to delete project', message: error.message });
   }
 });
 
@@ -1597,7 +1685,13 @@ async function startServer() {
     const portConfig = dynamicPortManager.getConfig();
     
     // Get port configuration with automatic conflict resolution
-    PORT = dynamicPortManager.getServerPort();
+    // Use Railway's PORT in production, otherwise use dynamic port manager
+    PORT = process.env.PORT || process.env.RAILWAY_PUBLIC_PORT || dynamicPortManager.getServerPort();
+    
+    // For Railway deployment, ensure we're using the correct port
+    if (process.env.NODE_ENV === 'production' && process.env.PORT) {
+      PORT = parseInt(process.env.PORT);
+    }
     
     // Validate configuration
     const validation = validateConfig(portConfig);
@@ -1651,7 +1745,9 @@ async function startServer() {
   logger.info('  GET  /api/metrics');
   logger.info('  GET  /api/ports'); // Added this line
   logger.info('  GET  /api/projects');
+  logger.info('  POST /api/projects');
   logger.info('  GET  /api/projects/:id');
+  logger.info('  DELETE /api/projects/:id');
   logger.info('  GET  /api/projects/:id/scans');
   logger.info('  GET  /api/scans');
   logger.info('  GET  /api/scans/:id');

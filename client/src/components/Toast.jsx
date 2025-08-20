@@ -141,16 +141,14 @@ function Toast({ toast, onClose, onMinimize }) {
             )}
           </button>
           
-          {/* Close Button */}
-          {!toast.persistent && (
-            <button
-              onClick={onClose}
-              className="p-1 rounded-lg hover:bg-gray-700/50 transition-colors group"
-              title="Close notification"
-            >
-              <X className="w-4 h-4 text-gray-500 group-hover:text-gray-300" />
-            </button>
-          )}
+          {/* Close Button - Always available */}
+          <button
+            onClick={onClose}
+            className="p-1 rounded-lg hover:bg-gray-700/50 transition-colors group"
+            title="Close notification"
+          >
+            <X className="w-4 h-4 text-gray-500 group-hover:text-gray-300" />
+          </button>
         </div>
       </div>
     </div>
@@ -235,6 +233,7 @@ export function ToastProvider({ children }) {
       message, 
       title: options.title || 'Loading',
       persistent: true,
+      duration: options.timeout || 30000, // Auto-dismiss after 30 seconds as fallback
       ...options 
     }),
 
@@ -278,13 +277,16 @@ export function ToastProvider({ children }) {
       type: 'success',
       title: 'Scan Complete!',
       message: `Analyzed ${results.files} files, found ${results.conflicts} issues`,
+      duration: 8000, // Auto-dismiss after 8 seconds
       actions: [{
         label: 'View Results',
-        onClick: () => {}
+        onClick: () => {},
+        closeOnClick: true // Close toast when clicked
       }, {
         label: 'Export Report',
         onClick: () => {},
-        icon: Download
+        icon: Download,
+        closeOnClick: true // Close toast when clicked
       }]
     })
   }

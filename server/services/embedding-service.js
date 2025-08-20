@@ -4,6 +4,7 @@
  */
 
 import OpenAI from 'openai';
+import supabaseService from './supabase-service.js';
 import enhancedDb from './enhancedDatabase.js';
 import { EventEmitter } from 'events';
 import winston from 'winston';
@@ -337,7 +338,16 @@ export class EmbeddingService extends EventEmitter {
       // Generate embedding for query
       const queryEmbedding = await this.generateEmbedding(queryText);
       
-      // Search for similar embeddings
+      // Use Supabase vector search if available
+      if (supabaseService.connected) {
+        return await supabaseService.searchSimilarChunks(queryEmbedding.vector, {
+          matchThreshold: 0.7,
+          matchCount: limit,
+          projectFilter: projectId
+        });
+      }
+      
+      // Fallback to PostgreSQL
       let query = `
         SELECT 
           cc.id as chunk_id,

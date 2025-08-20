@@ -476,10 +476,8 @@ function AppContent() {
   ]
 
   return (
-    <div className="h-screen bg-gray-950 flex flex-col overflow-visible">
+    <div className="h-screen bg-gray-950 flex flex-col overflow-visible relative">
         <Header 
-          isConnected={isConnected} 
-          healthData={healthData}
           onToggleAI={() => setShowAIPanel(!showAIPanel)}
           onOpenSettings={() => setShowSettings(true)}
           onProjectSelect={(project) => {
@@ -498,7 +496,7 @@ function AppContent() {
           }}
         />
       
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-1 overflow-hidden flex-col lg:flex-row relative z-0">
         <Sidebar 
           scanPath={scanPath}
           setScanPath={setScanPath}
@@ -510,7 +508,7 @@ function AppContent() {
           onOpenSettings={() => setShowSettings(true)}
         />
         
-        <main className="flex-1 overflow-hidden">
+        <main className="flex-1 overflow-hidden min-w-0 relative z-0">
           {isScanning ? (
             <div className="h-full flex items-center justify-center">
               <ScanningLoader 
@@ -522,19 +520,20 @@ function AppContent() {
           ) : scanResults ? (
             <div className="h-full flex flex-col">
               {/* Tab Navigation */}
-              <nav className="flex border-b border-gray-800 bg-gray-900">
+              <nav className="flex border-b border-gray-800 bg-gray-900 overflow-x-auto">
                 {tabConfig.map((tab) => (
                   <button
                     key={tab.id}
                     onClick={() => setSelectedTab(tab.id)}
-                    className={`flex items-center space-x-2 px-4 py-3 text-sm font-medium transition-colors ${
+                    className={`flex items-center space-x-1 sm:space-x-2 px-2 sm:px-4 py-3 text-xs sm:text-sm font-medium transition-colors whitespace-nowrap flex-shrink-0 ${
                       selectedTab === tab.id
                         ? 'text-blue-400 border-b-2 border-blue-400 bg-gray-800'
                         : 'text-gray-400 hover:text-gray-300 hover:bg-gray-800'
                     }`}
                   >
-                    <tab.icon className="w-4 h-4" />
-                    <span>{tab.label}</span>
+                    <tab.icon className="w-3 h-3 sm:w-4 sm:h-4" />
+                    <span className="hidden xs:inline">{tab.label}</span>
+                    <span className="xs:hidden">{tab.label.split(' ')[0]}</span>
                   </button>
                 ))}
               </nav>
@@ -552,7 +551,7 @@ function AppContent() {
                 {selectedTab === 'metrics' && (
                   <div className="h-full">
                     <IntelligentMetricsVisualization
-                      metricsData={scanResults.metrics}
+                      metricsData={scanResults}
                       ckgStats={null} // Would be loaded from CKG API
                       viewMode="dashboard"
                       onMetricClick={(metric, value, status) => {
@@ -612,11 +611,15 @@ function AppContent() {
         details={scanProgress.details}
         onComplete={(results) => {
           console.log('Scan completed with results:', results);
+          setIsScanning(false);
+          setScanStage('idle');
+          // Keep scanResults for display but mark scan as complete
         }}
         onError={(error) => {
           console.error('Scan error:', error);
           setIsScanning(false);
           setScanStage('error');
+          setScanResults(null); // Clear results on error
         }}
       />
 

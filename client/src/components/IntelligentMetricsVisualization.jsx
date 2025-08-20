@@ -28,6 +28,43 @@ const IntelligentMetricsVisualization = ({
   onMetricClick,
   viewMode = 'dashboard' // dashboard, detailed, comparison
 }) => {
+  // Validate and normalize metrics data
+  const normalizedMetrics = React.useMemo(() => {
+    if (!metricsData) {
+      return {
+        complexity: 0,
+        coupling: 0,
+        cohesion: 0,
+        testCoverage: 0,
+        dependencies: 0,
+        technicalDebt: 0,
+        buildTime: 0,
+        bundleSize: 0,
+        totalFiles: 0,
+        totalLines: 0,
+        conflicts: 0
+      };
+    }
+
+    // Handle different data structures
+    if (typeof metricsData === 'object') {
+      return {
+        complexity: metricsData.complexity || metricsData.avgComplexity || 0,
+        coupling: metricsData.coupling || metricsData.dependencies || 0,
+        cohesion: metricsData.cohesion || 0,
+        testCoverage: metricsData.testCoverage || 0,
+        dependencies: metricsData.dependencies || 0,
+        technicalDebt: metricsData.technicalDebt || metricsData.conflicts || 0,
+        buildTime: metricsData.buildTime || 0,
+        bundleSize: metricsData.bundleSize || 0,
+        totalFiles: metricsData.totalFiles || 0,
+        totalLines: metricsData.totalLines || 0,
+        conflicts: metricsData.conflicts || 0
+      };
+    }
+
+    return metricsData;
+  }, [metricsData]);
   const containerRef = useRef();
   const [selectedMetric, setSelectedMetric] = useState(null);
   const [timeRange, setTimeRange] = useState('current');
@@ -681,6 +718,26 @@ const IntelligentMetricsVisualization = ({
     
     return data;
   };
+
+  // Show loading or empty state
+  if (!normalizedMetrics || Object.keys(normalizedMetrics).length === 0) {
+    return (
+      <div className="h-full bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 mx-auto mb-4 bg-blue-100 rounded-full flex items-center justify-center">
+            <BarChart3 className="w-8 h-8 text-blue-600" />
+          </div>
+          <h3 className="text-lg font-medium text-gray-900 mb-2">No Metrics Available</h3>
+          <p className="text-gray-600 mb-4">
+            Run a code scan to generate comprehensive metrics and insights.
+          </p>
+          <div className="text-sm text-gray-500">
+            Metrics will include complexity, dependencies, test coverage, and more.
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="h-full bg-gradient-to-br from-slate-50 to-slate-100">

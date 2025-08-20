@@ -31,11 +31,20 @@ class AIService {
         apiKey: process.env.ANTHROPIC_API_KEY,
       });
       
-      this.providers.set('claude', {
+      this.providers.set('anthropic', {
         name: 'Claude',
         client: anthropic,
         model: process.env.ANTHROPIC_MODEL || 'claude-3-haiku-20240307',
         handler: this.handleClaude.bind(this)
+      });
+    }
+
+    // Google AI Provider (placeholder for future implementation)
+    if (process.env.GOOGLE_API_KEY) {
+      this.providers.set('google', {
+        name: 'Google AI',
+        model: 'gemini-pro',
+        handler: this.handleGoogle.bind(this)
       });
     }
 
@@ -122,6 +131,22 @@ class AIService {
       response,
       suggestions: this.extractSuggestions(response),
       confidence: this.calculateClaudeConfidence(completion)
+    };
+  }
+
+  async handleGoogle(message, context, config) {
+    // Placeholder implementation for Google AI
+    // In a real implementation, you would integrate with Google's AI API
+    await new Promise(resolve => setTimeout(resolve, 500)); // Simulate processing
+
+    return {
+      response: `Google AI integration is not yet implemented. This is a placeholder response for: "${message}"`,
+      suggestions: [
+        'Google AI integration coming soon',
+        'Consider using OpenAI or Claude for now',
+        'Check back later for Google AI support'
+      ],
+      confidence: 0.5
     };
   }
 
@@ -335,11 +360,125 @@ Here are some general principles that might help:`
   }
 
   getAvailableProviders() {
-    return Array.from(this.providers.keys()).map(key => ({
-      id: key,
-      name: this.providers.get(key).name,
-      available: true
-    }));
+    const providers = {};
+    
+    for (const [key, provider] of this.providers) {
+      providers[key] = {
+        id: key,
+        name: provider.name,
+        available: true,
+        configured: true
+      };
+    }
+    
+    return providers;
+  }
+
+  // Test connection for a specific provider
+  async testConnection(providerName) {
+    try {
+      if (!this.providers.has(providerName)) {
+        return {
+          success: false,
+          error: `Provider '${providerName}' is not available`
+        };
+      }
+
+      const provider = this.providers.get(providerName);
+      
+      // Test based on provider type
+      switch (providerName) {
+        case 'openai':
+          return await this.testOpenAIConnection(provider);
+        case 'anthropic':
+        case 'claude':
+          return await this.testClaudeConnection(provider);
+        case 'google':
+          return await this.testGoogleConnection(provider);
+        case 'local':
+          return {
+            success: true,
+            details: 'Local AI provider is always available'
+          };
+        default:
+          return {
+            success: false,
+            error: `Unknown provider: ${providerName}`
+          };
+      }
+    } catch (error) {
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }
+
+  async testOpenAIConnection(provider) {
+    try {
+      // Test with a simple completion
+      const completion = await provider.client.chat.completions.create({
+        model: 'gpt-3.5-turbo',
+        messages: [
+          { role: 'user', content: 'Hello, this is a connection test.' }
+        ],
+        max_tokens: 10,
+        temperature: 0
+      });
+
+      return {
+        success: true,
+        details: `OpenAI connection successful. Model: ${provider.model}`
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: `OpenAI connection failed: ${error.message}`
+      };
+    }
+  }
+
+  async testClaudeConnection(provider) {
+    try {
+      // Test with a simple message
+      const completion = await provider.client.messages.create({
+        model: 'claude-3-haiku-20240307',
+        max_tokens: 10,
+        temperature: 0,
+        messages: [
+          {
+            role: 'user',
+            content: 'Hello, this is a connection test.'
+          }
+        ]
+      });
+
+      return {
+        success: true,
+        details: `Claude connection successful. Model: ${provider.model}`
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: `Claude connection failed: ${error.message}`
+      };
+    }
+  }
+
+  async testGoogleConnection(provider) {
+    try {
+      // For Google AI, we'll return a mock success since we don't have the actual implementation
+      // In a real implementation, you would test the Google AI API here
+      return {
+        success: true,
+        details: 'Google AI connection test (mock) - implement actual Google AI API integration'
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: `Google AI connection failed: ${error.message}`
+      };
+    }
   }
 
   // Health check method

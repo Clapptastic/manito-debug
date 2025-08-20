@@ -7,35 +7,31 @@ import {
 } from 'lucide-react'
 import Tooltip, { StatusTooltip, HelpTooltip, KeyboardTooltip } from './Tooltip'
 import { useToast } from './Toast'
-import StatusIndicators from './StatusIndicators'
 import GlobalSearch from './GlobalSearch'
 import ProjectManager from './ProjectManager'
 import ScanQueueDashboard from './ScanQueueDashboard'
 import SystemMetricsDashboard from './SystemMetricsDashboard'
 import AIProviderConfig from './AIProviderConfig'
 
-const Header = ({ isConnected, healthData, onToggleAI, onOpenSettings, onProjectSelect, onSearchSelect }) => {
+const Header = ({ onToggleAI, onOpenSettings, onProjectSelect, onSearchSelect }) => {
   const toast = useToast()
 
 
   return (
-    <header className="glass-panel m-4 mb-0 p-4 overflow-visible">
+    <header className="glass-panel m-2 sm:m-4 mb-0 p-2 sm:p-4 overflow-visible">
       <div className="flex items-center justify-between">
-        {/* Left side - App title and status */}
-        <div className="flex items-center space-x-6">
-          <div className="flex items-center space-x-3">
-            <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
-              <Activity className="w-4 h-4 text-white" />
+        {/* Left side - App title */}
+        <div className="flex items-center space-x-2 sm:space-x-6">
+          <div className="flex items-center space-x-2 sm:space-x-3">
+            <div className="w-6 h-6 sm:w-8 sm:h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
+              <Activity className="w-3 h-3 sm:w-4 sm:h-4 text-white" />
             </div>
-            <h1 className="text-xl font-bold text-gray-100">ManitoDebug</h1>
+            <h1 className="text-lg sm:text-xl font-bold text-gray-100">ManitoDebug</h1>
           </div>
-
-          {/* Status Indicators */}
-          <StatusIndicators healthData={healthData} isConnected={isConnected} />
         </div>
 
         {/* Right side - Controls and stats */}
-        <div className="flex items-center space-x-4">
+        <div className="flex items-center space-x-1 sm:space-x-4">
           {/* Project Manager */}
           <ProjectManager 
             onProjectSelect={(project) => {
@@ -71,10 +67,11 @@ const Header = ({ isConnected, healthData, onToggleAI, onOpenSettings, onProject
           <KeyboardTooltip shortcut="Alt+A" description="Toggle AI Assistant">
             <button
               onClick={onToggleAI}
-              className="flex items-center space-x-2 px-3 py-2 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white rounded-lg font-medium transition-all duration-200 transform hover:scale-105 focus:ring-2 focus:ring-purple-500/50 focus:outline-none"
+              className="flex items-center space-x-1 sm:space-x-2 px-2 sm:px-3 py-2 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white rounded-lg font-medium transition-all duration-200 transform hover:scale-105 focus:ring-2 focus:ring-purple-500/50 focus:outline-none text-xs sm:text-sm"
             >
-              <Brain className="w-4 h-4" />
-              <span>AI Assistant</span>
+              <Brain className="w-3 h-3 sm:w-4 sm:h-4" />
+              <span className="hidden sm:inline">AI Assistant</span>
+              <span className="sm:hidden">AI</span>
             </button>
           </KeyboardTooltip>
 

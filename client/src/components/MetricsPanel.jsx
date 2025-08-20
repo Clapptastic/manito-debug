@@ -176,6 +176,26 @@ function MetricsPanel({ data, className = '' }) {
 
   }, [metrics])
 
+  // Calculate health score
+  const healthScore = React.useMemo(() => {
+    if (metrics.error) return 0
+    
+    let score = 100
+    score -= metrics.conflicts * 10
+    score -= metrics.complexFiles * 5
+    score -= metrics.largeFiles * 2
+    
+    return Math.max(0, Math.min(100, Math.round(score)))
+  }, [metrics])
+
+  // Get health color based on score
+  const getHealthColor = (score) => {
+    if (score >= 80) return 'text-green-400'
+    if (score >= 60) return 'text-yellow-400'
+    if (score >= 40) return 'text-orange-400'
+    return 'text-red-400'
+  }
+
   // File Size Distribution Chart
   useEffect(() => {
     if (!metrics || !data?.files || !filesizeChartRef.current) return
@@ -263,13 +283,6 @@ function MetricsPanel({ data, className = '' }) {
         </div>
       </div>
     )
-  }
-
-  const healthScore = Math.max(0, 100 - (metrics.conflicts * 10) - (metrics.complexFiles * 5))
-  const getHealthColor = (score) => {
-    if (score >= 80) return 'text-green-400'
-    if (score >= 60) return 'text-yellow-400'
-    return 'text-red-400'
   }
 
   const getHealthStatus = (score) => {

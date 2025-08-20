@@ -1013,8 +1013,8 @@ function SettingsModal({ isOpen, onClose, healthData, isConnected }) {
   )
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[10000] flex items-center justify-center p-2 sm:p-4 animate-fade-in">
-      <div ref={modalRef} className="glass-panel w-full max-w-4xl max-h-[90vh] flex flex-col animate-scale-up">
+            <div className="modal-container z-[99994] p-4 sm:p-6 animate-fade-in">
+      <div ref={modalRef} className="modal-content w-full max-w-4xl animate-scale-up">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-700/50">
           <div className="flex items-center space-x-3">

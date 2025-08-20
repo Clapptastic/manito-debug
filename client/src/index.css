@@ -13,6 +13,27 @@
     @apply bg-gray-800/50 backdrop-blur-sm border border-gray-700/50 rounded-lg;
   }
   
+  /* Ensure modals are properly positioned and not cut off */
+  .modal-container {
+    @apply fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center;
+    min-height: 100vh;
+    min-height: 100dvh; /* Dynamic viewport height for mobile */
+  }
+  
+  .modal-content {
+    @apply glass-panel flex flex-col;
+    max-height: 85vh;
+    max-height: 85dvh; /* Dynamic viewport height for mobile */
+    margin: auto;
+  }
+  
+  /* Ensure sidebar stays behind modals */
+  .sidebar-container {
+    @apply relative;
+    z-index: -1;
+    isolation: isolate;
+  }
+  
   .btn-primary {
     @apply bg-primary-600 hover:bg-primary-700 text-white px-4 py-2 rounded-lg font-medium transition-colors;
   }
@@ -124,7 +145,7 @@
 /* Global tooltip styles to ensure visibility */
 .tooltip-portal {
   position: fixed !important;
-  z-index: 99999 !important;
+  z-index: 50 !important;
   pointer-events: none !important;
 }
 
@@ -178,8 +199,8 @@
 .compact-mode .gap-6 { gap: var(--spacing-md) !important; }
 
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 .animate-fade-in {
@@ -209,7 +230,7 @@
 }
 
 @keyframes scaleUp {
-  from { opacity: 0; transform: scale(0.95); }
+  from { opacity: 0; transform: scale(0.98); }
   to { opacity: 1; transform: scale(1); }
 }
 

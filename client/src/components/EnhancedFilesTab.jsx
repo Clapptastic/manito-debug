@@ -336,7 +336,7 @@ const EnhancedFilesTab = ({ files = [] }) => {
                       </button>
                       
                       {selectedFile === file.filePath && (
-                        <div className="absolute right-0 top-8 z-10 bg-gray-800 border border-gray-600 rounded-lg shadow-lg py-1 min-w-48">
+                        <div className="absolute right-0 top-8 z-[99985] bg-gray-800 border border-gray-600 rounded-lg shadow-lg py-1 min-w-48">
                           <button
                             onClick={(e) => {
                               e.stopPropagation();

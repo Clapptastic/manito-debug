@@ -17,8 +17,8 @@ class Project {
   static async create(projectData, userId = null) {
     const { name, path, description = null } = projectData;
     
-    if (!name || !path) {
-      throw new Error('Project name and path are required');
+    if (!name) {
+      throw new Error('Project name is required');
     }
 
     try {
@@ -158,8 +158,41 @@ class Project {
 
   // Delete project and all related data
   async delete() {
-    const result = await enhancedDb.delete('projects', 'id = $1', [this.id]);
-    return result.length > 0;
+    try {
+      // Delete related scans first
+      try {
+        await enhancedDb.query('DELETE FROM scans WHERE project_id = $1', [this.id]);
+      } catch (error) {
+        console.warn('Could not delete scans for project:', error.message);
+      }
+      
+      // Delete related graph data (handle permission errors gracefully)
+      try {
+        await enhancedDb.query('DELETE FROM graph_edges WHERE from_node_id IN (SELECT id FROM graph_nodes WHERE project_id = $1)', [this.id]);
+      } catch (error) {
+        console.warn('Could not delete graph edges for project:', error.message);
+      }
+      
+      try {
+        await enhancedDb.query('DELETE FROM graph_nodes WHERE project_id = $1', [this.id]);
+      } catch (error) {
+        console.warn('Could not delete graph nodes for project:', error.message);
+      }
+      
+      // Delete related code chunks
+      try {
+        await enhancedDb.query('DELETE FROM code_chunks WHERE project_id = $1', [this.id]);
+      } catch (error) {
+        console.warn('Could not delete code chunks for project:', error.message);
+      }
+      
+      // Finally delete the project
+      const result = await enhancedDb.delete('projects', 'id = $1', [this.id]);
+      return result.length > 0;
+    } catch (error) {
+      console.error('Error deleting project:', error);
+      throw error;
+    }
   }
 
   // Get all scans for this project

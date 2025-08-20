@@ -4,6 +4,7 @@
  */
 
 import graphStore from './graph-store.js';
+import supabaseService from './supabase-service.js';
 import enhancedDb from './enhancedDatabase.js';
 import { EventEmitter } from 'events';
 import winston from 'winston';
@@ -43,8 +44,10 @@ export class SymbolicIndex extends EventEmitter {
       const cached = this.getFromCache(cacheKey);
       if (cached) return cached;
 
-      // Search for symbol definition in graph
-      const definitions = await graphStore.findSymbolDefinitions(symbolName, projectId);
+      // Search for symbol definition in graph using Supabase
+      const definitions = supabaseService.connected 
+        ? await supabaseService.findSymbolDefinitions(symbolName, projectId)
+        : await graphStore.findSymbolDefinitions(symbolName, projectId);
       
       // If filePath provided, prefer definitions in same file or nearby
       let result = definitions;
@@ -72,7 +75,9 @@ export class SymbolicIndex extends EventEmitter {
       const cached = this.getFromCache(cacheKey);
       if (cached) return cached;
 
-      const references = await graphStore.findSymbolReferences(symbolName, projectId);
+      const references = supabaseService.connected
+        ? await supabaseService.findSymbolReferences(symbolName, projectId)
+        : await graphStore.findSymbolReferences(symbolName, projectId);
       
       let result = references;
       if (includeDefinition) {

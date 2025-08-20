@@ -3,6 +3,7 @@
  * Manages nodes, edges, and graph operations in PostgreSQL
  */
 
+import supabaseService from './supabase-service.js';
 import enhancedDb from './enhancedDatabase.js';
 import { EventEmitter } from 'events';
 import winston from 'winston';
@@ -22,6 +23,16 @@ export class GraphStore extends EventEmitter {
         })
       ]
     });
+
+    // Use Supabase as primary database, fallback to PostgreSQL
+    this.db = supabaseService.connected ? supabaseService : enhancedDb;
+    this.usingSupabase = supabaseService.connected;
+    
+    if (this.usingSupabase) {
+      this.logger.info('Graph store using Supabase database');
+    } else {
+      this.logger.info('Graph store using PostgreSQL database');
+    }
   }
 
   /**
@@ -39,10 +50,10 @@ export class GraphStore extends EventEmitter {
         project_id
       } = nodeData;
 
-      const result = await enhancedDb.insert('graph_nodes', {
-        type,
+      const result = await this.db.insert('graph_nodes', {
+        node_type: type, // Renamed field for Supabase
         name,
-        path,
+        file_path: path, // Renamed field for Supabase
         language,
         metadata,
         commit_hash,
@@ -72,7 +83,7 @@ export class GraphStore extends EventEmitter {
         confidence = 1.0
       } = edgeData;
 
-      const result = await enhancedDb.insert('graph_edges', {
+      const result = await this.db.insert('graph_edges', {
         from_node_id,
         to_node_id,
         relationship,

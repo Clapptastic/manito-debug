@@ -156,7 +156,7 @@ export function LoadingOverlay({
   if (!isVisible) return null
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[10009] flex items-center justify-center animate-in fade-in duration-200">
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[99987] flex items-center justify-center animate-in fade-in duration-200">
       <div className="glass-panel p-8 text-center space-y-4 max-w-sm w-full mx-4 ring-1 ring-blue-500/20 shadow-2xl transform transition-all duration-200 animate-in slide-in-from-top-4 scale-in-95">
         <div className="flex justify-center">
           <Spinner size="xl" />

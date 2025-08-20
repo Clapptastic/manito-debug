@@ -84,6 +84,36 @@ export default defineConfig(async () => {
       open: true, // Automatically open browser
       proxy: createDynamicProxy(portConfig.server)
     },
+    build: {
+      rollupOptions: {
+        output: {
+          manualChunks: {
+            // Vendor chunks for better caching
+            vendor: ['react', 'react-dom'],
+            query: ['@tanstack/react-query'],
+            icons: ['lucide-react'],
+            
+            // Feature-based chunks for code splitting
+            visualization: ['d3'],
+            ckg: [
+              './src/components/CKGPanel',
+              './src/components/IntelligentCKGVisualization',
+              './src/components/CKGVisualization'
+            ],
+            metrics: [
+              './src/components/IntelligentMetricsVisualization',
+              './src/components/MetricsPanel',
+              './src/components/SystemMetricsDashboard'
+            ],
+            search: [
+              './src/components/IntelligentSearchVisualization',
+              './src/components/GlobalSearch'
+            ]
+          }
+        }
+      },
+      chunkSizeWarningLimit: 600 // Increase threshold for large feature chunks
+    },
     define: {
       __PORT_CONFIG__: JSON.stringify(portConfig)
     },

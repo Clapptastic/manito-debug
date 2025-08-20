@@ -542,6 +542,50 @@ class EnhancedDatabaseService extends EventEmitter {
     }
   }
 
+  // Enhanced delete with advanced features
+  async delete(table, where, whereParams = [], options = {}) {
+    if (!this.connected) {
+      return this.mockDelete(table, where, whereParams);
+    }
+
+    const {
+      returning = ['*'],
+      cacheKey = null
+    } = options;
+
+    let query = `DELETE FROM ${table}`;
+    
+    if (where) {
+      query += ` WHERE ${where}`;
+    }
+    
+    if (returning && returning.length > 0) {
+      query += ` RETURNING ${returning.join(', ')}`;
+    }
+
+    try {
+      const result = await this.query(query, whereParams);
+      
+      // Clear cache if specified
+      if (cacheKey) {
+        await this.deleteCache(cacheKey);
+      }
+      
+      this.logger.info('Delete successful', { 
+        table, 
+        rowsAffected: result.rowCount 
+      });
+      
+      return result.rows;
+    } catch (error) {
+      this.logger.error('Delete failed', { 
+        table, 
+        error: error.message 
+      });
+      throw error;
+    }
+  }
+
   // Enhanced select with advanced features
   async select(table, options = {}) {
     const {
@@ -884,6 +928,38 @@ class EnhancedDatabaseService extends EventEmitter {
     }
     
     return updated;
+  }
+
+  mockDelete(table, where, whereParams = []) {
+    if (!this.mockData.has(table)) {
+      return [];
+    }
+    
+    const records = this.mockData.get(table);
+    let deleted = [];
+    
+    if (where.includes('id = $1') && whereParams[0]) {
+      const index = records.findIndex(record => record.id == whereParams[0]);
+      if (index >= 0) {
+        deleted = [records[index]];
+        records.splice(index, 1);
+      }
+    }
+    
+    this.logger.warn('Database unavailable - using mock delete', { 
+      table,
+      suggestion: 'Data will not be persisted. Please check database connection.'
+    });
+    
+    // Emit event for UI notification
+    this.emit('mockModeActive', {
+      operation: 'delete',
+      table,
+      message: 'Data not deleted - database unavailable.',
+      suggestion: 'Please connect to PostgreSQL database for data persistence'
+    });
+    
+    return deleted;
   }
 
   // Graceful shutdown

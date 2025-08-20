@@ -5,7 +5,7 @@
 
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import * as d3 from 'd3';
-import { VisualizationConfig, VisualizationHelpers } from '../../core/visualization-config.js';
+import { VisualizationConfig, VisualizationHelpers } from '../../../core/visualization-config.js';
 import {
   ZoomIn,
   ZoomOut,

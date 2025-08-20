@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import * as d3 from 'd3';
-import { VisualizationConfig, VisualizationHelpers } from '../../core/visualization-config.js';
+import { VisualizationConfig, VisualizationHelpers } from '../../../core/visualization-config.js';
 
 const DependencyGraph = ({ data, width = 800, height = 600, config = VisualizationConfig }) => {
   const svgRef = useRef();
@@ -238,7 +238,7 @@ const DependencyGraph = ({ data, width = 800, height = 600, config = Visualizati
         .style('border-radius', '4px')
         .style('font-size', '12px')
         .style('pointer-events', 'none')
-        .style('z-index', 1000);
+        .style('z-index', 50);
     }
 
     d3.select('.tooltip-container')

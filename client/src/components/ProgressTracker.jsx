@@ -16,6 +16,25 @@ const ProgressTracker = ({
   const [stageDetails, setStageDetails] = useState({});
   const [estimatedTime, setEstimatedTime] = useState(null);
   const [startTime, setStartTime] = useState(null);
+  const [hasBeenDismissed, setHasBeenDismissed] = useState(false);
+
+  // Handle Escape key to close when completed
+  useEffect(() => {
+    const handleEscape = (e) => {
+      if (e.key === 'Escape' && (currentStage === 'completed' || currentStage === 'error')) {
+        setCurrentStage('idle');
+        setHasBeenDismissed(true);
+        if (currentStage === 'completed') {
+          onComplete?.(scanResults);
+        } else {
+          onError?.(null);
+        }
+      }
+    };
+    
+    document.addEventListener('keydown', handleEscape);
+    return () => document.removeEventListener('keydown', handleEscape);
+  }, [currentStage, scanResults, onComplete, onError]);
 
   const stages = {
     idle: { label: 'Ready', icon: CheckCircle, color: 'text-green-500' },
@@ -66,12 +85,19 @@ const ProgressTracker = ({
   }, [progress, startTime, isActive]);
 
   useEffect(() => {
-    if (scanResults && currentStage !== 'completed') {
+    if (scanResults && currentStage !== 'completed' && !hasBeenDismissed) {
       setCurrentStage('completed');
       setStageProgress(100);
       if (onComplete) onComplete(scanResults);
     }
-  }, [scanResults, currentStage, onComplete]);
+  }, [scanResults, currentStage, onComplete, hasBeenDismissed]);
+
+  // Reset dismissed state when a new scan starts
+  useEffect(() => {
+    if (isActive && stage === 'initializing') {
+      setHasBeenDismissed(false);
+    }
+  }, [isActive, stage]);
 
   const formatTime = (ms) => {
     if (ms < 1000) return 'Less than 1 second';
@@ -130,13 +156,47 @@ const ProgressTracker = ({
 
   const details = getStageDetails();
 
-  if (!isActive && currentStage === 'idle') {
+  if ((!isActive && currentStage === 'idle') || hasBeenDismissed) {
     return null;
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[10006] animate-in fade-in duration-200">
-      <div className="bg-gray-900 border border-gray-700 rounded-lg p-6 w-full max-w-md mx-4 ring-1 ring-blue-500/20 shadow-2xl transform transition-all duration-200 animate-in slide-in-from-top-4 scale-in-95">
+    <div 
+      className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[99989] animate-in fade-in duration-200"
+      onClick={(e) => {
+        if (e.target === e.currentTarget && (currentStage === 'completed' || currentStage === 'error')) {
+          setCurrentStage('idle');
+          setHasBeenDismissed(true);
+          if (currentStage === 'completed') {
+            onComplete?.(scanResults);
+          } else {
+            onError?.(null);
+          }
+        }
+      }}
+    >
+      <div className="bg-gray-900 border border-gray-700 rounded-lg p-6 w-full max-w-md mx-4 ring-1 ring-blue-500/20 shadow-2xl transform transition-all duration-200 animate-in slide-in-from-top-4 scale-in-95 relative">
+        {/* Close Button in Header */}
+        {(currentStage === 'completed' || currentStage === 'error') && (
+          <button
+            onClick={() => {
+              setCurrentStage('idle');
+              setHasBeenDismissed(true);
+              if (currentStage === 'completed') {
+                onComplete?.(scanResults);
+              } else {
+                onError?.(null);
+              }
+            }}
+            className="absolute top-4 right-4 p-1 text-gray-400 hover:text-gray-200 hover:bg-gray-800 rounded transition-colors"
+            title="Close"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        )}
+        
         <div className="flex items-center space-x-3 mb-4">
           {React.createElement(stages[currentStage]?.icon || Loader2, {
             className: `w-6 h-6 ${stages[currentStage]?.color || 'text-blue-500'} ${currentStage === 'scanning' || currentStage === 'analyzing' ? 'animate-spin' : ''}`
@@ -194,13 +254,43 @@ const ProgressTracker = ({
           </div>
         )}
 
-        {/* Cancel Button */}
+        {/* Action Buttons */}
         {isActive && currentStage !== 'completed' && currentStage !== 'error' && (
           <button
             onClick={() => onError?.('Scan cancelled by user')}
             className="mt-4 w-full px-4 py-2 text-sm text-gray-400 hover:text-white border border-gray-600 hover:border-gray-500 rounded transition-colors"
           >
             Cancel Scan
+          </button>
+        )}
+        
+        {/* Close Button for Completed State */}
+        {currentStage === 'completed' && (
+          <button
+            onClick={() => {
+              setCurrentStage('idle');
+              setHasBeenDismissed(true);
+              onComplete?.(scanResults);
+            }}
+            className="mt-4 w-full px-4 py-2 text-sm bg-green-600 hover:bg-green-700 text-white rounded transition-colors flex items-center justify-center space-x-2"
+          >
+            <CheckCircle className="w-4 h-4" />
+            <span>Close</span>
+          </button>
+        )}
+        
+        {/* Close Button for Error State */}
+        {currentStage === 'error' && (
+          <button
+            onClick={() => {
+              setCurrentStage('idle');
+              setHasBeenDismissed(true);
+              onError?.(null);
+            }}
+            className="mt-4 w-full px-4 py-2 text-sm bg-red-600 hover:bg-red-700 text-white rounded transition-colors flex items-center justify-center space-x-2"
+          >
+            <AlertCircle className="w-4 h-4" />
+            <span>Close</span>
           </button>
         )}
       </div>

@@ -73,7 +73,7 @@ function ConfirmDialog({
 
   return (
     <div 
-      className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[10008] flex items-center justify-center p-2 sm:p-4 animate-in fade-in duration-200"
+      className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[99988] flex items-center justify-center p-2 sm:p-4 animate-in fade-in duration-200"
       onClick={(e) => e.target === e.currentTarget && onClose()}
       onKeyDown={handleKeyDown}
     >

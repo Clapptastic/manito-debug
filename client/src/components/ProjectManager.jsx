@@ -131,12 +131,54 @@ const ProjectManager = ({ onProjectSelect, currentProjectId, className = '' }) =
   };
 
   const getProjectStats = (project) => {
+    // Extract file count from description if available
+    const fileCountMatch = project.description?.match(/(\d+)\s+files?/);
+    const fileCount = fileCountMatch ? parseInt(fileCountMatch[1]) : 0;
+    
+    // Determine project type from path or description
+    const projectType = getProjectType(project);
+    
     return {
       scanCount: project.scanCount || 0,
-      fileCount: project.fileCount || 0,
-      lastScan: project.lastScanAt ? formatDate(project.lastScanAt) : 'Never',
+      fileCount: fileCount,
+      lastScan: project.last_scanned_at ? formatDate(project.last_scanned_at) : 'Never',
       totalSize: project.totalSize || 0,
+      projectType: projectType,
+      status: project.scan_status || 'pending',
+      created: formatDate(project.created_at),
+      updated: formatDate(project.updated_at)
     };
+  };
+
+  const getProjectType = (project) => {
+    const path = project.path?.toLowerCase() || '';
+    const description = project.description?.toLowerCase() || '';
+    
+    if (path.includes('browser-temp') || description.includes('browser directory upload')) {
+      return 'Browser Upload';
+    }
+    if (path.includes('extracted') || description.includes('uploaded project')) {
+      return 'File Upload';
+    }
+    if (path.includes('uploads')) {
+      return 'Upload';
+    }
+    if (path.includes('src') || path.includes('components')) {
+      return 'Source Code';
+    }
+    if (path.includes('server') || path.includes('api')) {
+      return 'Backend';
+    }
+    if (path.includes('client') || path.includes('frontend')) {
+      return 'Frontend';
+    }
+    if (path.includes('docs') || path.includes('documentation')) {
+      return 'Documentation';
+    }
+    if (path.includes('test') || path.includes('spec')) {
+      return 'Test';
+    }
+    return 'Project';
   };
 
   const projects = projectsQuery.data || [];
@@ -147,42 +189,43 @@ const ProjectManager = ({ onProjectSelect, currentProjectId, className = '' }) =
       {/* Project Manager Trigger */}
       <button
         onClick={() => setIsOpen(true)}
-        className="flex items-center space-x-2 px-3 py-2 text-sm text-gray-400 bg-gray-800 rounded-lg border border-gray-700 hover:border-gray-600 hover:text-gray-300 transition-colors"
+        className="flex items-center space-x-1 sm:space-x-2 px-2 sm:px-3 py-2 text-xs sm:text-sm text-gray-400 bg-gray-800 rounded-lg border border-gray-700 hover:border-gray-600 hover:text-gray-300 transition-colors"
       >
-        <Folder className="w-4 h-4" />
-        <span>Projects</span>
+        <Folder className="w-3 h-3 sm:w-4 sm:h-4" />
+        <span className="hidden sm:inline">Projects</span>
+        <span className="sm:hidden">Proj</span>
         {projects.length > 0 && (
-          <span className="px-1.5 py-0.5 text-xs bg-blue-600 text-white rounded-full">
+          <span className="px-1 sm:px-1.5 py-0.5 text-xs bg-blue-600 text-white rounded-full">
             {projects.length}
           </span>
         )}
       </button>
 
-      {/* Project Manager Modal - Highest z-index to appear above all elements */}
+      {/* Project Manager Modal - High z-index to appear above all elements */}
       {isOpen && (
-        <div className="fixed inset-0 z-[10001] flex items-start justify-center pt-4 sm:pt-20 px-2 sm:px-4 animate-in fade-in duration-200">
-          <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm animate-in fade-in duration-300" onClick={() => setIsOpen(false)} />
-          <div className="relative w-full max-w-4xl bg-gray-900 rounded-lg sm:rounded-lg border border-gray-700 shadow-2xl ring-1 ring-blue-500/20 transform transition-all duration-200 animate-in slide-in-from-top-4 scale-in-95 max-h-[95vh] sm:max-h-[90vh] overflow-hidden" style={{ boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(59, 130, 246, 0.1)' }}>
+        <div className="modal-container z-[99999] p-4 sm:p-6 animate-fade-in" onClick={() => setIsOpen(false)}>
+          <div className="modal-content w-full max-w-4xl animate-scale-up" onClick={(e) => e.stopPropagation()}>
             {/* Header */}
-            <div className="flex items-center justify-between p-6 border-b border-gray-700">
+            <div className="flex items-center justify-between p-3 sm:p-6 border-b border-gray-700">
               <div>
-                <h2 className="text-xl font-semibold text-white">Project Manager</h2>
-                <p className="text-gray-400 text-sm">Manage your code analysis projects</p>
+                <h2 className="text-lg sm:text-xl font-semibold text-white">Project Manager</h2>
+                <p className="text-gray-400 text-xs sm:text-sm">Manage your code analysis projects</p>
               </div>
-              <div className="flex items-center space-x-3">
+              <div className="flex items-center space-x-2 sm:space-x-3">
                 <button
                   onClick={() => setShowCreateForm(true)}
-                  className="flex items-center space-x-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+                  className="flex items-center space-x-1 sm:space-x-2 px-2 sm:px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors text-xs sm:text-sm"
                 >
-                  <Plus className="w-4 h-4" />
-                  <span>New Project</span>
+                  <Plus className="w-3 h-3 sm:w-4 sm:h-4" />
+                  <span className="hidden sm:inline">New Project</span>
+                  <span className="sm:hidden">New</span>
                 </button>
                 <button
                   onClick={() => setIsOpen(false)}
-                  className="p-2 text-gray-400 hover:text-gray-200 hover:bg-gray-800 rounded-lg transition-colors"
+                  className="p-1 sm:p-2 text-gray-400 hover:text-gray-200 hover:bg-gray-800 rounded-lg transition-colors"
                   title="Close"
                 >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                   </svg>
                 </button>
@@ -301,26 +344,39 @@ const ProjectManager = ({ onProjectSelect, currentProjectId, className = '' }) =
                               </p>
                             )}
 
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                              <div className="flex items-center space-x-2">
-                                <BarChart3 className="w-4 h-4 text-gray-500" />
-                                <span className="text-gray-300">{stats.scanCount} scans</span>
-                              </div>
-                              <div className="flex items-center space-x-2">
-                                <FileText className="w-4 h-4 text-gray-500" />
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4 text-xs sm:text-sm">
+                              <div className="flex items-center space-x-1 sm:space-x-2">
+                                <FileText className="w-3 h-3 sm:w-4 sm:h-4 text-gray-500" />
                                 <span className="text-gray-300">{stats.fileCount} files</span>
                               </div>
-                              <div className="flex items-center space-x-2">
-                                <Clock className="w-4 h-4 text-gray-500" />
-                                <span className="text-gray-300">Last: {stats.lastScan}</span>
+                              <div className="flex items-center space-x-1 sm:space-x-2">
+                                <Clock className="w-3 h-3 sm:w-4 sm:h-4 text-gray-500" />
+                                <span className="text-gray-300 hidden sm:inline">Last: {stats.lastScan}</span>
+                                <span className="text-gray-300 sm:hidden">{stats.lastScan}</span>
                               </div>
-                              <div className="flex items-center space-x-2">
-                                <GitBranch className="w-4 h-4 text-gray-500" />
-                                <span className="text-gray-300">
-                                  {project.dependencies?.length || 0} deps
+                              <div className="flex items-center space-x-1 sm:space-x-2">
+                                <Calendar className="w-3 h-3 sm:w-4 sm:h-4 text-gray-500" />
+                                <span className="text-gray-300 hidden sm:inline">{stats.created}</span>
+                                <span className="text-gray-300 sm:hidden">{stats.created.split(' ')[0]}</span>
+                              </div>
+                              <div className="flex items-center space-x-1 sm:space-x-2">
+                                <span className={`px-1 sm:px-2 py-1 text-xs rounded-full ${
+                                  stats.status === 'completed' ? 'bg-green-600 text-green-100' :
+                                  stats.status === 'failed' ? 'bg-red-600 text-red-100' :
+                                  'bg-yellow-600 text-yellow-100'
+                                }`}>
+                                  {stats.status}
                                 </span>
                               </div>
                             </div>
+                            
+                            {stats.projectType !== 'Project' && (
+                              <div className="mt-2">
+                                <span className="inline-flex items-center px-2 py-1 text-xs bg-gray-700 text-gray-300 rounded-full">
+                                  {stats.projectType}
+                                </span>
+                              </div>
+                            )}
                           </div>
 
                           <div className="flex items-center space-x-2 ml-4">
@@ -337,7 +393,7 @@ const ProjectManager = ({ onProjectSelect, currentProjectId, className = '' }) =
                               </button>
                               
                               {selectedProject === project.id && (
-                                <div className="absolute right-0 top-8 z-[10000] bg-gray-800 border border-gray-600 rounded-lg shadow-lg py-1 min-w-48">
+                                <div className="absolute right-0 top-8 z-[99986] bg-gray-800 border border-gray-600 rounded-lg shadow-lg py-1 min-w-48">
                                   <button
                                     onClick={(e) => {
                                       e.stopPropagation();

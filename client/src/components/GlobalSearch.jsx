@@ -173,9 +173,8 @@ const GlobalSearch = ({ onResultSelect, className = '' }) => {
 
       {/* Search Modal */}
       {isOpen && (
-        <div className="fixed inset-0 z-[10005] flex items-start justify-center pt-4 sm:pt-20 px-2 sm:px-4 animate-in fade-in duration-200">
-          <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm animate-in fade-in duration-300" onClick={() => setIsOpen(false)} />
-          <div className="relative w-full max-w-2xl bg-gray-900 rounded-lg border border-gray-700 shadow-2xl ring-1 ring-blue-500/20 transform transition-all duration-200 animate-in slide-in-from-top-4 scale-in-95 max-h-[95vh] sm:max-h-[90vh] overflow-hidden">
+        <div className="modal-container z-[99995] p-4 sm:p-6 animate-fade-in" onClick={() => setIsOpen(false)}>
+          <div className="modal-content w-full max-w-2xl animate-scale-up" onClick={(e) => e.stopPropagation()}>
             {/* Search Input */}
             <div className="p-4 border-b border-gray-700">
               <div className="relative">

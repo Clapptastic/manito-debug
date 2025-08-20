@@ -143,20 +143,20 @@ function Sidebar({ scanPath, setScanPath, onScan, onUpload, onBrowseDirectory, i
   }
 
   return (
-    <aside className="w-80 glass-panel m-4 mr-0 flex flex-col overflow-visible relative z-10">
+    <aside className="w-full lg:w-80 glass-panel m-2 sm:m-4 lg:mr-0 flex flex-col overflow-visible sidebar-container">
       {/* Header */}
-      <div className="p-6 border-b border-gray-700/50">
+      <div className="p-3 sm:p-6 border-b border-gray-700/50">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-white flex items-center space-x-2">
-            <Zap className="w-5 h-5 text-primary-400" />
+          <h2 className="text-base sm:text-lg font-semibold text-white flex items-center space-x-2">
+            <Zap className="w-4 h-4 sm:w-5 sm:h-5 text-primary-400" />
             <span>Code Scanner</span>
           </h2>
           <HelpTooltip content="Configure scan settings and analysis options">
             <button 
               onClick={onOpenSettings}
-              className="p-2 rounded-lg hover:bg-gray-700/50 transition-colors focus:ring-2 focus:ring-blue-500/50 focus:outline-none"
+              className="p-1 sm:p-2 rounded-lg hover:bg-gray-700/50 transition-colors focus:ring-2 focus:ring-blue-500/50 focus:outline-none"
             >
-              <Settings className="w-4 h-4 text-gray-400" />
+              <Settings className="w-3 h-3 sm:w-4 sm:h-4 text-gray-400" />
             </button>
           </HelpTooltip>
         </div>
@@ -167,37 +167,40 @@ function Sidebar({ scanPath, setScanPath, onScan, onUpload, onBrowseDirectory, i
             {isFileSystemAccessSupported() && (
               <button
                 onClick={() => setInputMode('browse')}
-                className={`px-2 py-2 text-xs font-medium rounded-md transition-all flex items-center justify-center space-x-1 ${
+                className={`px-1 sm:px-2 py-2 text-xs font-medium rounded-md transition-all flex items-center justify-center space-x-1 ${
                   inputMode === 'browse'
                     ? 'bg-primary-600 text-white shadow-sm'
                     : 'text-gray-400 hover:text-gray-300 hover:bg-gray-700/50'
                 }`}
               >
                 <Folder className="w-3 h-3" />
-                <span>Browse</span>
+                <span className="hidden sm:inline">Browse</span>
+                <span className="sm:hidden">Browse</span>
               </button>
             )}
             <button
               onClick={() => setInputMode('upload')}
-              className={`px-2 py-2 text-xs font-medium rounded-md transition-all flex items-center justify-center space-x-1 ${
+              className={`px-1 sm:px-2 py-2 text-xs font-medium rounded-md transition-all flex items-center justify-center space-x-1 ${
                 inputMode === 'upload'
                   ? 'bg-primary-600 text-white shadow-sm'
                   : 'text-gray-400 hover:text-gray-300 hover:bg-gray-700/50'
               }`}
             >
               <Archive className="w-3 h-3" />
-              <span>Upload</span>
+              <span className="hidden sm:inline">Upload</span>
+              <span className="sm:hidden">Upload</span>
             </button>
             <button
               onClick={() => setInputMode('path')}
-              className={`px-2 py-2 text-xs font-medium rounded-md transition-all flex items-center justify-center space-x-1 ${
+              className={`px-1 sm:px-2 py-2 text-xs font-medium rounded-md transition-all flex items-center justify-center space-x-1 ${
                 inputMode === 'path'
                   ? 'bg-primary-600 text-white shadow-sm'
                   : 'text-gray-400 hover:text-gray-300 hover:bg-gray-700/50'
               }`}
             >
               <FolderOpen className="w-3 h-3" />
-              <span>Path</span>
+              <span className="hidden sm:inline">Path</span>
+              <span className="sm:hidden">Path</span>
             </button>
           </div>
         </div>
