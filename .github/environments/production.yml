@@ -1,11 +1,7 @@
 name: production
-on:
-  branch:
-    - main
-  required_reviewers:
-    - your-username
-  wait_timer:
-    minutes: 5
-  deployment_branch_policy:
-    protected_branches: true
-    custom_branch_policies: false
+url: https://manito-debug.com
+protection_rules:
+  - required_reviewers:
+      required_approving_review_count: 2
+  - wait_timer:
+      wait_time: 10
