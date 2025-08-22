@@ -81,7 +81,7 @@ services:
       - POSTGRES_PASSWORD=manito_prod_password
       - POSTGRES_DB=manito_prod
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks:
@@ -99,7 +99,7 @@ services:
     container_name: manito-redis-prod
     command: redis-server --protected-mode no --bind 0.0.0.0 --port 6379 --requirepass manito_redis_password --maxmemory 256mb --maxmemory-policy allkeys-lru
     ports:
-      - "6379:6379"
+      - "6380:6379"
     environment:
       - REDIS_PASSWORD=manito_redis_password
     volumes:
