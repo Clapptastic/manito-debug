@@ -1,0 +1,14 @@
+{
+  "timestamp": "2025-08-21T22:31:59.735Z",
+  "totalTests": 11,
+  "passed": 5,
+  "failed": 6,
+  "errors": [
+    "Missing env vars: SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_VAULT_SECRET_KEY",
+    "Supabase RPC functions failed",
+    "Vault status: Not found",
+    "Vault keys: Not found",
+    "Vault audit log: Not found",
+    "Vault rotation schedule: Not found"
+  ]
+}

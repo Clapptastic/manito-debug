@@ -66,7 +66,7 @@ export const SettingsProvider = ({ children }) => {
     enableAIInsights: true,
     aiResponseLength: 'medium',
     aiModelPreferences: {
-      openai: 'gpt-3.5-turbo',
+      openai: 'gpt-5',
       anthropic: 'claude-3-haiku-20240307',
       google: 'gemini-pro'
     }
@@ -114,7 +114,7 @@ export const SettingsProvider = ({ children }) => {
       enableAIInsights: true,
       aiResponseLength: 'medium',
       aiModelPreferences: {
-        openai: 'gpt-3.5-turbo',
+        openai: 'gpt-5',
         anthropic: 'claude-3-haiku-20240307',
         google: 'gemini-pro'
       }
@@ -333,7 +333,7 @@ export const SettingsProvider = ({ children }) => {
       enableAIInsights: true,
       aiResponseLength: 'medium',
       aiModelPreferences: {
-        openai: 'gpt-3.5-turbo',
+        openai: 'gpt-5',
         anthropic: 'claude-3-haiku-20240307',
         google: 'gemini-pro'
       }

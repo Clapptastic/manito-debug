@@ -785,7 +785,7 @@ const DependencyGraph = ({ data, width = 800, height = 600, config = Visualizati
         .style('border-radius', '5px')
         .style('font-size', '12px')
         .style('pointer-events', 'none')
-        .style('z-index', 1000)
+        .style('z-index', 50)
         .html(content);
 
       tooltip

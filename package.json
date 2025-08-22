@@ -21,7 +21,7 @@
     "build:docker": "./scripts/docker-build-push.sh",
     "test": "npm run test:core && npm run test:client && npm run test:server && npm run test:e2e",
     "test:core": "cd core && npm test",
-    "test:client": "cd client && npm test",
+    "test:client": "cd client && npm run test:run",
     "test:server": "cd server && npm test",
     "test:watch": "concurrently --kill-others-on-fail --prefix \"[{name}]\" --names \"core,client,server\" \"npm run test:core -- --watch\" \"npm run test:client -- --watch\" \"npm run test:server -- --watch\"",
     "test:e2e": "node scripts/e2e-test-suite.js",

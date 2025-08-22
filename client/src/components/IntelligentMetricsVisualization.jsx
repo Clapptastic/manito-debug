@@ -819,7 +819,7 @@ const IntelligentMetricsVisualization = ({
 
       {/* Hover Tooltip */}
       {hoveredMetric && (
-        <div className="fixed bg-gray-800 border border-gray-600 rounded-lg p-3 text-sm shadow-lg z-50 pointer-events-none">
+        <div className="fixed bg-gray-800 border border-gray-600 rounded-lg p-3 text-sm shadow-lg z-[99995] pointer-events-none">
           <div className="font-semibold text-white">{hoveredMetric.name || hoveredMetric.category}</div>
           <div className="text-gray-400">
             {hoveredMetric.value !== undefined && `Value: ${hoveredMetric.value}`}

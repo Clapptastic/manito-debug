@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { 
   Brain, 
   Settings, 
@@ -27,6 +28,10 @@ const AIProviderConfig = ({ className = '' }) => {
       }
     };
     
+    const handleOpenAISettings = () => {
+      setIsOpen(true);
+    };
+    
     if (isOpen) {
       document.addEventListener('keydown', handleEscape);
       // Prevent body scroll when modal is open
@@ -36,6 +41,12 @@ const AIProviderConfig = ({ className = '' }) => {
         document.body.style.overflow = 'unset';
       };
     }
+    
+    // Listen for custom event to open AI settings
+    window.addEventListener('openAISettings', handleOpenAISettings);
+    return () => {
+      window.removeEventListener('openAISettings', handleOpenAISettings);
+    };
   }, [isOpen]);
 
   const [providers, setProviders] = useState({});
@@ -261,8 +272,8 @@ const AIProviderConfig = ({ className = '' }) => {
         )}
       </button>
 
-      {/* AI Provider Config Modal */}
-      {isOpen && (
+      {/* AI Provider Configuration Modal */}
+      {isOpen && createPortal(
         <div className="modal-container z-[99996] p-4 sm:p-6 animate-fade-in" onClick={() => setIsOpen(false)}>
           <div className="modal-content w-full max-w-4xl animate-scale-up" onClick={(e) => e.stopPropagation()}>
             {/* Header */}
@@ -465,7 +476,8 @@ const AIProviderConfig = ({ className = '' }) => {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

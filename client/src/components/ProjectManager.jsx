@@ -1,23 +1,42 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { 
   Folder, 
+  FolderOpen,
   Plus, 
-  Clock, 
-  FileText, 
-  GitBranch, 
-  AlertTriangle, 
   MoreVertical, 
   Trash2, 
-  Edit3,
-  Download,
+  Edit, 
+  Download, 
   Upload,
+  Search,
+  Filter,
   Calendar,
+  Clock,
+  FileText,
+  Code,
+  Database,
+  Settings,
+  Activity,
   BarChart3,
-  FolderOpen,
+  Network,
+  Globe,
+  Shield,
+  Zap,
+  Star,
+  Users,
+  GitBranch,
+  GitCommit,
+  GitPullRequest,
+  GitMerge,
+  GitCompare,
+  GitBranchPlus,
+  GitFork,
   Copy
-} from 'lucide-react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useToast } from './Toast';
+} from 'lucide-react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useToast } from './Toast'
+import { useSettings } from '../contexts/SettingsContext'
 
 const ProjectManager = ({ onProjectSelect, currentProjectId, className = '' }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -79,11 +98,19 @@ const ProjectManager = ({ onProjectSelect, currentProjectId, className = '' }) =
       setShowCreateForm(false);
       setNewProjectName('');
       setNewProjectPath('');
-      toast.success('Project created successfully!');
+      try {
+        toast.success('Project created successfully!');
+      } catch (error) {
+        console.warn('Toast not available:', error.message);
+      }
       onProjectSelect?.(newProject);
     },
     onError: (error) => {
-      toast.error(`Failed to create project: ${error.message}`);
+      try {
+        toast.error(`Failed to create project: ${error.message}`);
+      } catch (toastError) {
+        console.warn('Toast not available:', toastError.message);
+      }
     },
   });
 
@@ -99,17 +126,29 @@ const ProjectManager = ({ onProjectSelect, currentProjectId, className = '' }) =
     },
     onSuccess: () => {
       queryClient.invalidateQueries(['projects']);
-      toast.success('Project deleted successfully!');
+      try {
+        toast.success('Project deleted successfully!');
+      } catch (error) {
+        console.warn('Toast not available:', error.message);
+      }
     },
     onError: (error) => {
-      toast.error(`Failed to delete project: ${error.message}`);
+      try {
+        toast.error(`Failed to delete project: ${error.message}`);
+      } catch (toastError) {
+        console.warn('Toast not available:', toastError.message);
+      }
     },
   });
 
   const handleCreateProject = (e) => {
     e.preventDefault();
     if (!newProjectName.trim()) {
-      toast.error('Project name is required');
+      try {
+        toast.error('Project name is required');
+      } catch (error) {
+        console.warn('Toast not available:', error.message);
+      }
       return;
     }
     createProjectMutation.mutate({
@@ -188,7 +227,10 @@ const ProjectManager = ({ onProjectSelect, currentProjectId, className = '' }) =
     <div className={className}>
       {/* Project Manager Trigger */}
       <button
-        onClick={() => setIsOpen(true)}
+        onClick={() => {
+          console.log('Opening project manager modal');
+          setIsOpen(true);
+        }}
         className="flex items-center space-x-1 sm:space-x-2 px-2 sm:px-3 py-2 text-xs sm:text-sm text-gray-400 bg-gray-800 rounded-lg border border-gray-700 hover:border-gray-600 hover:text-gray-300 transition-colors"
       >
         <Folder className="w-3 h-3 sm:w-4 sm:h-4" />
@@ -202,7 +244,7 @@ const ProjectManager = ({ onProjectSelect, currentProjectId, className = '' }) =
       </button>
 
       {/* Project Manager Modal - High z-index to appear above all elements */}
-      {isOpen && (
+      {isOpen && createPortal(
         <div className="modal-container z-[99999] p-4 sm:p-6 animate-fade-in" onClick={() => setIsOpen(false)}>
           <div className="modal-content w-full max-w-4xl animate-scale-up" onClick={(e) => e.stopPropagation()}>
             {/* Header */}
@@ -320,7 +362,13 @@ const ProjectManager = ({ onProjectSelect, currentProjectId, className = '' }) =
                             : 'border-gray-700 bg-gray-800 hover:border-gray-600 hover:bg-gray-750'
                         }`}
                         onClick={() => {
-                          onProjectSelect?.(project);
+                          console.log('Project clicked:', project);
+                          console.log('onProjectSelect callback:', onProjectSelect);
+                          if (onProjectSelect) {
+                            onProjectSelect(project);
+                          } else {
+                            console.warn('onProjectSelect callback is not provided');
+                          }
                           setIsOpen(false);
                         }}
                       >
@@ -410,7 +458,11 @@ const ProjectManager = ({ onProjectSelect, currentProjectId, className = '' }) =
                                     onClick={(e) => {
                                       e.stopPropagation();
                                       navigator.clipboard.writeText(project.path);
-                                      toast.success('Project path copied to clipboard');
+                                      try {
+                                        toast.success('Project path copied to clipboard');
+                                      } catch (error) {
+                                        console.warn('Toast not available:', error.message);
+                                      }
                                       setSelectedProject(null);
                                     }}
                                     className="w-full px-3 py-2 text-left text-sm text-gray-300 hover:bg-gray-700 flex items-center space-x-2"
@@ -424,7 +476,11 @@ const ProjectManager = ({ onProjectSelect, currentProjectId, className = '' }) =
                                       e.stopPropagation();
                                       const projectInfo = `Project: ${project.name}\nPath: ${project.path}\nDescription: ${project.description || 'No description'}\nLast Scan: ${project.last_scanned_at || 'Never'}`;
                                       navigator.clipboard.writeText(projectInfo);
-                                      toast.success('Project details copied to clipboard');
+                                      try {
+                                        toast.success('Project details copied to clipboard');
+                                      } catch (error) {
+                                        console.warn('Toast not available:', error.message);
+                                      }
                                       setSelectedProject(null);
                                     }}
                                     className="w-full px-3 py-2 text-left text-sm text-gray-300 hover:bg-gray-700 flex items-center space-x-2"
@@ -475,7 +531,8 @@ const ProjectManager = ({ onProjectSelect, currentProjectId, className = '' }) =
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

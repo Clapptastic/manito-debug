@@ -39,7 +39,11 @@ const Header = ({ onToggleAI, onOpenSettings, onProjectSelect, onSearchSelect })
               if (onProjectSelect) {
                 onProjectSelect(project);
               }
-              toast.success(`Switched to project: ${project.name}`);
+              try {
+                toast.success(`Switched to project: ${project.name}`);
+              } catch (error) {
+                console.warn('Toast not available:', error.message);
+              }
             }}
           />
 
@@ -59,7 +63,11 @@ const Header = ({ onToggleAI, onOpenSettings, onProjectSelect, onSearchSelect })
               if (onSearchSelect) {
                 onSearchSelect(result);
               }
-              toast.info(`Selected: ${result.title || result.name}`);
+              try {
+                toast.info(`Selected: ${result.title || result.name}`);
+              } catch (error) {
+                console.warn('Toast not available:', error.message);
+              }
             }}
           />
 
@@ -79,10 +87,14 @@ const Header = ({ onToggleAI, onOpenSettings, onProjectSelect, onSearchSelect })
           <Tooltip content="Test toast notifications">
             <button 
               onClick={() => {
-                toast.success('Test success message!', { title: 'Success' })
-                setTimeout(() => toast.error('Test error message!', { title: 'Error' }), 1000)
-                setTimeout(() => toast.warning('Test warning message!', { title: 'Warning' }), 2000)
-                setTimeout(() => toast.info('Test info message!', { title: 'Info' }), 3000)
+                try {
+                  toast.success('Test success message!', { title: 'Success' })
+                  setTimeout(() => toast.error('Test error message!', { title: 'Error' }), 1000)
+                  setTimeout(() => toast.warning('Test warning message!', { title: 'Warning' }), 2000)
+                  setTimeout(() => toast.info('Test info message!', { title: 'Info' }), 3000)
+                } catch (error) {
+                  console.warn('Toast not available:', error.message);
+                }
               }}
               className="p-2 text-gray-400 hover:text-gray-200 hover:bg-gray-800 rounded-lg transition-colors focus:ring-2 focus:ring-blue-500/50 focus:outline-none"
             >

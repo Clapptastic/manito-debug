@@ -7,7 +7,11 @@ class AIService {
     this.providers = new Map();
     this.vaultInitialized = false;
     this.auditEnabled = true;
-    this.initializeVault();
+    // Don't initialize vault in constructor - it will be initialized later
+  }
+
+  async initialize() {
+    await this.initializeVault();
   }
 
   async initializeVault() {
@@ -85,7 +89,7 @@ class AIService {
       this.providers.set('openai', {
         name: 'OpenAI GPT',
         client: openai,
-        model: process.env.OPENAI_MODEL || 'gpt-3.5-turbo',
+        model: process.env.OPENAI_MODEL || 'gpt-5',
         handler: this.handleOpenAI.bind(this),
         keyRotationEnabled: true
       });
@@ -213,7 +217,7 @@ class AIService {
     }
   }
 
-  async sendMessage(message, context = null, provider = 'local') {
+  async sendMessage(message, context = null, provider = 'openai') {
     if (!this.providers.has(provider)) {
       throw new Error(`Provider '${provider}' is not available`);
     }

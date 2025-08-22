@@ -1,3 +1,20 @@
+// Load environment variables first, before any imports
+import dotenv from 'dotenv';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Load environment variables from the root directory
+dotenv.config({ path: path.join(__dirname, '..', '.env') });
+
+// Debug: Check if environment variables are loaded
+console.log('🔧 Environment Variables Check:');
+console.log('  SUPABASE_VAULT_SECRET_KEY:', process.env.SUPABASE_VAULT_SECRET_KEY ? '✅ Loaded' : '❌ Missing');
+console.log('  NODE_ENV:', process.env.NODE_ENV || 'development');
+console.log('  PORT:', process.env.PORT || 'not set');
+
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
@@ -8,10 +25,6 @@ import { createServer } from 'http';
 import Joi from 'joi';
 import winston from 'winston';
 import fs from 'fs/promises';
-import path from 'path';
-import { fileURLToPath } from 'url';
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
 import { CodeScanner } from '@manito/core';
 import aiService from './services/ai.js';
 import vaultService from './services/vault-service.js';
@@ -1301,8 +1314,8 @@ app.post('/api/ai/analyze', async (req, res) => {
 
     // Step 2: Get all file paths for AI analysis
     const filePaths = scanResult.files
-      .filter(file => file && file.path)
-      .map(file => file.path);
+      .filter(file => file && (file.filePath || file.path))
+      .map(file => file.filePath || file.path);
 
     // Step 3: Perform AI-powered analysis
     const { AIAnalysisService } = await import('@manito/core');
@@ -1677,6 +1690,340 @@ app.use((error, req, res, next) => {
   });
 });
 
+// Register fallback vault routes that work even when vault service fails
+function registerFallbackVaultRoutes() {
+  // Add fallback vault management endpoints
+  app.get('/api/vault/status', async (req, res) => {
+    try {
+      const status = {
+        initialized: false,
+        error: 'Vault service not available',
+        environment: {
+          vaultSecretKeyLoaded: !!process.env.SUPABASE_VAULT_SECRET_KEY,
+          nodeEnv: process.env.NODE_ENV,
+          timestamp: new Date().toISOString()
+        }
+      };
+      
+      res.json(status);
+    } catch (error) {
+      logger.error('Failed to get vault status', error);
+      res.status(500).json({ 
+        error: 'Failed to get vault status', 
+        message: error.message 
+      });
+    }
+  });
+
+  app.get('/api/vault/keys', async (req, res) => {
+    res.json({ 
+      providers: [],
+      count: 0,
+      vaultEnabled: false,
+      message: 'Vault service not available - using environment variables'
+    });
+  });
+
+  app.delete('/api/vault/keys/:provider', async (req, res) => {
+    res.status(503).json({ 
+      error: 'Vault service not available',
+      message: 'Cannot delete API keys - vault service is not initialized'
+    });
+  });
+
+  app.delete('/api/vault/keys', async (req, res) => {
+    res.status(503).json({ 
+      error: 'Vault service not available',
+      message: 'Cannot delete API keys - vault service is not initialized'
+    });
+  });
+
+  app.get('/api/vault/audit-log', async (req, res) => {
+    res.json({
+      success: true,
+      data: [],
+      count: 0,
+      message: 'Vault service not available - no audit log'
+    });
+  });
+
+  app.get('/api/vault/rotation-schedule', async (req, res) => {
+    res.json({
+      rotationSchedule: {},
+      message: 'Vault service not available - no rotation schedule'
+    });
+  });
+
+  app.post('/api/vault/rotate-key/:provider', async (req, res) => {
+    res.status(503).json({ 
+      error: 'Vault service not available',
+      message: 'Cannot rotate keys - vault service is not initialized'
+    });
+  });
+
+  app.post('/api/vault/set-rotation-schedule', async (req, res) => {
+    res.status(503).json({ 
+      error: 'Vault service not available',
+      message: 'Cannot set rotation schedule - vault service is not initialized'
+    });
+  });
+
+  app.post('/api/vault/create-backup', async (req, res) => {
+    res.status(503).json({ 
+      error: 'Vault service not available',
+      message: 'Cannot create backup - vault service is not initialized'
+    });
+  });
+
+  app.post('/api/vault/restore-backup/:backupId', async (req, res) => {
+    res.status(503).json({ 
+      error: 'Vault service not available',
+      message: 'Cannot restore backup - vault service is not initialized'
+    });
+  });
+}
+
+// Register vault routes
+function registerVaultRoutes() {
+  // Add vault management endpoints
+  app.get('/api/vault/status', async (req, res) => {
+    try {
+      const status = {
+        initialized: vaultService.isInitialized(),
+        health: await vaultService.healthCheck()
+      };
+      
+      res.json(status);
+    } catch (error) {
+      logger.error('Failed to get vault status', error);
+      res.status(500).json({ 
+        error: 'Failed to get vault status', 
+        message: error.message 
+      });
+    }
+  });
+
+  app.get('/api/vault/keys', async (req, res) => {
+    try {
+      const userId = req.user?.id || 'default';
+      const keys = await vaultService.getAllApiKeys(userId);
+      
+      // Return only provider names, not the actual keys
+      const providers = Object.keys(keys).filter(provider => keys[provider] !== null);
+      
+      res.json({ 
+        providers,
+        count: providers.length,
+        vaultEnabled: vaultService.isInitialized()
+      });
+    } catch (error) {
+      logger.error('Failed to get API keys', error);
+      res.status(500).json({ 
+        error: 'Failed to get API keys', 
+        message: error.message 
+      });
+    }
+  });
+
+  app.delete('/api/vault/keys/:provider', async (req, res) => {
+    try {
+      const userId = req.user?.id || 'default';
+      const { provider } = req.params;
+      
+      await vaultService.deleteApiKey(userId, provider);
+      
+      res.json({ 
+        success: true, 
+        message: `API key for ${provider} deleted successfully` 
+      });
+    } catch (error) {
+      logger.error('Failed to delete API key', error);
+      res.status(500).json({ 
+        error: 'Failed to delete API key', 
+        message: error.message 
+      });
+    }
+  });
+
+  app.delete('/api/vault/keys', async (req, res) => {
+    try {
+      const userId = req.user?.id || 'default';
+      
+      await vaultService.deleteAllApiKeys(userId);
+      
+      res.json({ 
+        success: true, 
+        message: 'All API keys deleted successfully' 
+      });
+    } catch (error) {
+      logger.error('Failed to delete all API keys', error);
+      res.status(500).json({ 
+        error: 'Failed to delete all API keys', 
+        message: error.message 
+      });
+    }
+  });
+
+  // Enhanced vault endpoints
+  app.get('/api/vault/audit-log', async (req, res) => {
+    try {
+      const { limit = 100, offset = 0 } = req.query;
+      const auditLog = await vaultService.getAuditLog(parseInt(limit), parseInt(offset));
+      
+      res.json({
+        success: true,
+        data: auditLog,
+        count: auditLog.length,
+        limit: parseInt(limit),
+        offset: parseInt(offset)
+      });
+    } catch (error) {
+      logger.error('Failed to get vault audit log', error);
+      res.status(500).json({ 
+        error: 'Failed to get vault audit log', 
+        message: error.message 
+      });
+    }
+  });
+
+  app.get('/api/vault/rotation-schedule', async (req, res) => {
+    try {
+      const rotationSchedule = await vaultService.getKeyRotationSchedule();
+      
+      res.json({
+        success: true,
+        data: rotationSchedule
+      });
+    } catch (error) {
+      logger.error('Failed to get rotation schedule', error);
+      res.status(500).json({ 
+        error: 'Failed to get rotation schedule', 
+        message: error.message 
+      });
+    }
+  });
+
+  app.post('/api/vault/rotate-key/:provider', async (req, res) => {
+    try {
+      const userId = req.user?.id || 'default';
+      const { provider } = req.params;
+      
+      const success = await vaultService.rotateApiKey(provider, userId);
+      
+      res.json({
+        success: true,
+        message: `API key for ${provider} rotated successfully`
+      });
+    } catch (error) {
+      logger.error('Failed to rotate API key', error);
+      res.status(500).json({ 
+        error: 'Failed to rotate API key', 
+        message: error.message 
+      });
+    }
+  });
+
+  app.post('/api/vault/set-rotation-schedule', async (req, res) => {
+    try {
+      const { provider, daysUntilRotation = 90 } = req.body;
+      
+      if (!provider) {
+        return res.status(400).json({ error: 'Provider is required' });
+      }
+      
+      await vaultService.setKeyRotationSchedule(provider, daysUntilRotation);
+      
+      res.json({
+        success: true,
+        message: `Rotation schedule set for ${provider}`
+      });
+    } catch (error) {
+      logger.error('Failed to set rotation schedule', error);
+      res.status(500).json({ 
+        error: 'Failed to set rotation schedule', 
+        message: error.message 
+      });
+    }
+  });
+
+  app.post('/api/vault/create-backup', async (req, res) => {
+    try {
+      const backup = await vaultService.createBackup();
+      
+      res.json({
+        success: true,
+        data: backup,
+        message: 'Backup created successfully'
+      });
+    } catch (error) {
+      logger.error('Failed to create backup', error);
+      res.status(500).json({ 
+        error: 'Failed to create backup', 
+        message: error.message 
+      });
+    }
+  });
+
+  app.post('/api/vault/restore-backup/:backupId', async (req, res) => {
+    try {
+      const { backupId } = req.params;
+      
+      const success = await vaultService.restoreFromBackup(backupId);
+      
+      res.json({
+        success: true,
+        message: 'Backup restored successfully'
+      });
+    } catch (error) {
+      logger.error('Failed to restore backup', error);
+      res.status(500).json({ 
+        error: 'Failed to restore backup', 
+        message: error.message 
+      });
+    }
+  });
+
+  app.get('/api/ai/vault-status', async (req, res) => {
+    try {
+      const vaultStatus = await aiService.getVaultStatus();
+      
+      res.json({
+        success: true,
+        data: vaultStatus
+      });
+    } catch (error) {
+      logger.error('Failed to get AI vault status', error);
+      res.status(500).json({ 
+        error: 'Failed to get AI vault status', 
+        message: error.message 
+      });
+    }
+  });
+
+  app.post('/api/ai/rotate-key/:provider', async (req, res) => {
+    try {
+      const { provider } = req.params;
+      const userId = req.user?.id || 'default';
+      
+      const success = await vaultService.rotateApiKey(provider, userId);
+      
+      res.json({
+        success: true,
+        message: `API key for ${provider} rotated successfully`
+      });
+    } catch (error) {
+      logger.error('Failed to rotate AI API key', error);
+      res.status(500).json({ 
+        error: 'Failed to rotate AI API key', 
+        message: error.message 
+      });
+    }
+  });
+
+  logger.info('Vault routes registered');
+}
+
+// 404 handler
 app.use((req, res) => {
   res.status(404).json({ error: 'Not found', path: req.path });
 });
@@ -1719,24 +2066,58 @@ async function startServer() {
     process.exit(1);
   }
 
+  logger.info(`🎯 Attempting to start server on port ${PORT}...`);
   server.listen(PORT, async () => {
-  logger.info(`Manito API Server running on port ${PORT}`);
+  logger.info(`✅ Manito API Server running on port ${PORT}`);
+  logger.info('🚀 Starting service initialization...');
   
   // Run database migrations
   try {
+    logger.info('📋 Running database migrations...');
     await migrations.runMigrations();
-    logger.info('Database migrations completed');
+    logger.info('✅ Database migrations completed');
   } catch (error) {
-    logger.error('Database migration failed:', error);
+    logger.error('❌ Database migration failed:', error);
   }
 
   // Initialize Code Knowledge Graph service
   try {
+    logger.info('📋 Initializing Code Knowledge Graph service...');
     await ckgService.initialize();
-    logger.info('Code Knowledge Graph service initialized');
+    logger.info('✅ Code Knowledge Graph service initialized');
   } catch (error) {
-    logger.error('CKG service initialization failed:', error);
+    logger.error('❌ CKG service initialization failed:', error);
     // Don't exit - CKG is optional functionality
+  }
+
+  // Initialize Vault service
+  try {
+    logger.info('📋 Initializing Vault service...');
+    await vaultService.initialize();
+    logger.info('✅ Vault service initialized');
+    
+    // Register vault routes after vault service is initialized
+    logger.info('📋 Registering vault routes...');
+    registerVaultRoutes();
+    logger.info('✅ Vault routes registered');
+  } catch (error) {
+    logger.error('❌ Vault service initialization failed:', error);
+    // Don't exit - Vault is optional functionality
+    
+    // Register fallback vault routes that work even when vault service fails
+    logger.info('📋 Registering fallback vault routes...');
+    registerFallbackVaultRoutes();
+    logger.info('✅ Fallback vault routes registered');
+  }
+
+  // Initialize AI service
+  try {
+    logger.info('📋 Initializing AI service...');
+    await aiService.initialize();
+    logger.info('✅ AI service initialized');
+  } catch (error) {
+    logger.error('❌ AI service initialization failed:', error);
+    // Don't exit - AI is optional functionality
   }
   
   logger.info('Available endpoints:');
@@ -1775,6 +2156,11 @@ async function startServer() {
   logger.info('  POST /api/ai/rotate-key/:provider');
   logger.info('  GET  /api/ai/audit-log');
   logger.info('  GET  /api/graph/:scanId?');
+  
+  }).on('error', (error) => {
+  logger.error(`❌ Server failed to start on port ${PORT}:`, error);
+  process.exit(1);
+  });
   
   // Add vault management endpoints
   app.get('/api/vault/status', async (req, res) => {
@@ -2054,7 +2440,6 @@ async function startServer() {
   logger.info('  • Async job queue for large scans');
   logger.info('  • WebSocket real-time progress updates');
   logger.info('  • Worker threads for CPU-intensive tasks');
-  });
 }
 
 // Start the server

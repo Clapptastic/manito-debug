@@ -11,7 +11,8 @@ import {
   Layers,
   GitBranch,
   AlertCircle,
-  FileText
+  FileText,
+  Info
 } from 'lucide-react'
 
 function GraphVisualization({ data }) {
@@ -21,15 +22,132 @@ function GraphVisualization({ data }) {
   const [searchTerm, setSearchTerm] = useState('')
   const [filterType, setFilterType] = useState('all')
   const [zoomLevel, setZoomLevel] = useState(1)
+  const [hoveredNode, setHoveredNode] = useState(null)
+  const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 })
 
   const nodeTypes = {
-    entry: { color: '#3b82f6', icon: '🚀' },
-    component: { color: '#10b981', icon: '⚛️' },
-    utility: { color: '#f59e0b', icon: '🔧' },
-    service: { color: '#8b5cf6', icon: '⚙️' },
-    dependency: { color: '#ef4444', icon: '📦' },
-    external: { color: '#6b7280', icon: '🔗' }
+    entry: { color: '#3b82f6', icon: '🚀', label: 'Entry Point' },
+    component: { color: '#10b981', icon: '⚛️', label: 'Component' },
+    utility: { color: '#f59e0b', icon: '🔧', label: 'Utility' },
+    service: { color: '#8b5cf6', icon: '⚙️', label: 'Service' },
+    dependency: { color: '#ef4444', icon: '📦', label: 'Dependency' },
+    external: { color: '#6b7280', icon: '🔗', label: 'External' },
+    file: { color: '#6b7280', icon: '📄', label: 'File' },
+    test: { color: '#28a745', icon: '🧪', label: 'Test' }
   }
+
+  // Fix data structure processing
+  const processDependencies = (dependencies) => {
+    if (Array.isArray(dependencies)) {
+      // Convert array format to object format
+      const dependencyMap = {};
+      dependencies.forEach(dep => {
+        if (dep.from && dep.to) {
+          dependencyMap[dep.from] = dep.to;
+        }
+      });
+      return dependencyMap;
+    }
+    return dependencies || {};
+  };
+
+  // Improve node type detection
+  const determineNodeType = (file) => {
+    const path = file.filePath || file.path || '';
+    const ext = path.split('.').pop()?.toLowerCase();
+    
+    if (path.includes('component') || path.includes('Component')) return 'component';
+    if (path.includes('service') || path.includes('Service')) return 'service';
+    if (path.includes('util') || path.includes('helper')) return 'utility';
+    if (path.includes('test') || path.includes('spec')) return 'test';
+    if (path.includes('index') || path.includes('main')) return 'entry';
+    if (ext === 'jsx' || ext === 'tsx') return 'component';
+    if (ext === 'js' || ext === 'ts') return 'utility';
+    
+    return 'file';
+  };
+
+  // Empty state component
+  const EmptyState = ({ message, action }) => (
+    <div className="flex flex-col items-center justify-center h-full text-gray-400">
+      <FileText className="w-16 h-16 mb-4" />
+      <h3 className="text-lg font-semibold mb-2">No Data Available</h3>
+      <p className="text-sm text-center mb-4">{message}</p>
+      {action && (
+        <button className="btn btn-primary">{action}</button>
+      )}
+    </div>
+  );
+
+  // Legend component
+  const Legend = ({ nodeTypes, onFilterChange }) => (
+    <div className="absolute top-4 left-4 bg-gray-800/90 p-3 rounded-lg backdrop-blur-sm border border-gray-600">
+      <h4 className="text-sm font-semibold mb-2 text-white">Node Types</h4>
+      {Object.entries(nodeTypes).map(([type, config]) => (
+        <div key={type} className="flex items-center space-x-2 mb-1 cursor-pointer hover:bg-gray-700/50 p-1 rounded" onClick={() => onFilterChange(type)}>
+          <div 
+            className="w-3 h-3 rounded-full" 
+            style={{ backgroundColor: config.color }}
+          />
+          <span className="text-xs text-gray-300 capitalize">{config.label}</span>
+        </div>
+      ))}
+    </div>
+  );
+
+  // Controls component
+  const Controls = ({ onSearch, onFilter, onReset, nodeCount, linkCount }) => (
+    <div className="absolute top-4 right-4 bg-gray-800/90 p-3 rounded-lg backdrop-blur-sm border border-gray-600">
+      <div className="text-xs text-gray-400 mb-2">
+        {nodeCount} nodes • {linkCount} links
+      </div>
+      <input
+        type="text"
+        placeholder="Search files..."
+        className="w-full mb-2 px-2 py-1 text-sm bg-gray-700 rounded border border-gray-600 text-white"
+        onChange={(e) => onSearch(e.target.value)}
+      />
+      <select 
+        className="w-full px-2 py-1 text-sm bg-gray-700 rounded border border-gray-600 text-white"
+        onChange={(e) => onFilter(e.target.value)}
+      >
+        <option value="all">All Types</option>
+        <option value="component">Components</option>
+        <option value="service">Services</option>
+        <option value="utility">Utilities</option>
+        <option value="test">Tests</option>
+        <option value="entry">Entry Points</option>
+      </select>
+      <button 
+        onClick={onReset}
+        className="w-full mt-2 px-2 py-1 text-xs bg-gray-600 hover:bg-gray-500 rounded text-white transition-colors"
+      >
+        Reset View
+      </button>
+    </div>
+  );
+
+  // Tooltip component
+  const Tooltip = ({ node, position }) => {
+    if (!node) return null;
+    
+    return (
+      <div 
+        className="absolute bg-gray-800 border border-gray-600 rounded-lg p-3 text-sm shadow-lg z-[99995] pointer-events-none"
+        style={{ left: position.x + 10, top: position.y - 10 }}
+      >
+        <div className="font-semibold text-white">{node.label}</div>
+        <div className="text-gray-400">Type: {nodeTypes[node.type]?.label || node.type}</div>
+        <div className="text-gray-400">Lines: {node.lines || 0}</div>
+        <div className="text-gray-400">Complexity: {node.complexity || 0}</div>
+        {node.filePath && (
+          <div className="text-gray-400 text-xs mt-1 max-w-xs truncate">
+            {node.filePath}
+          </div>
+        )}
+      </div>
+    );
+  };
 
   useEffect(() => {
     if (!data || !data.files || !Array.isArray(data.files) || data.files.length === 0) {
@@ -101,21 +219,23 @@ function GraphVisualization({ data }) {
       // Main group for zoom/pan
       const g = svg.append('g')
 
-      // Process data into nodes and links
+      // Process data into nodes and links with improved data handling
       const nodes = data.files.map((file, index) => ({
-        id: file.filePath || `file-${index}`,
-        label: file.filePath?.split('/').pop() || `File ${index}`,
+        id: file.filePath || file.path || `file-${index}`,
+        label: (file.filePath || file.path || `File ${index}`).split('/').pop(),
         type: determineNodeType(file),
         size: Math.max(20, Math.min(60, (file.lines || 0) / 10)),
         complexity: file.complexity || 0,
         lines: file.lines || 0,
-        filePath: file.filePath || ''
+        filePath: file.filePath || file.path || ''
       }))
 
-      // Create links from dependencies
+      // Create links from dependencies with fixed data processing
+      const processedDeps = processDependencies(data.dependencies);
       const links = []
-      if (data.dependencies && typeof data.dependencies === 'object') {
-        Object.entries(data.dependencies).forEach(([from, to]) => {
+      
+      if (processedDeps && typeof processedDeps === 'object') {
+        Object.entries(processedDeps).forEach(([from, to]) => {
           if (from && to) {
             links.push({
               source: from,
@@ -162,9 +282,12 @@ function GraphVisualization({ data }) {
         .on('click', (event, d) => setSelectedNode(d))
         .on('mouseover', function(event, d) {
           d3.select(this).attr('stroke-width', 4)
+          setHoveredNode(d)
+          setTooltipPosition({ x: event.pageX, y: event.pageY })
         })
         .on('mouseout', function(event, d) {
           d3.select(this).attr('stroke-width', 2)
+          setHoveredNode(null)
         })
 
       // Add labels to nodes
@@ -207,252 +330,96 @@ function GraphVisualization({ data }) {
         d.fy = null
       }
 
-      // Determine node type based on file properties
-      function determineNodeType(file) {
-        const path = file.filePath || ''
-        if (path.includes('test') || path.includes('spec')) return 'test'
-        if (path.includes('component') || path.includes('Component')) return 'component'
-        if (path.includes('util') || path.includes('helper')) return 'utility'
-        if (path.includes('service') || path.includes('api')) return 'service'
-        if (path.includes('node_modules') || path.includes('vendor')) return 'external'
-        return 'entry'
-      }
-
     } catch (error) {
       console.error('Error creating graph visualization:', error)
       // Show error state
-      d3.select(svgRef.current).selectAll('*').remove()
-      const svg = d3.select(svgRef.current)
-        .attr('width', 400)
-        .attr('height', 300)
-        .style('background', 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)')
-      
       svg.append('text')
-        .attr('x', 200)
-        .attr('y', 150)
+        .attr('x', width / 2)
+        .attr('y', height / 2)
         .attr('text-anchor', 'middle')
-        .attr('fill', 'red')
-        .attr('font-size', '16px')
+        .attr('fill', '#ef4444')
         .text('Error creating visualization')
     }
   }, [data])
 
-  const getNodeType = (file) => {
-    const path = file.filePath.toLowerCase()
-    if (path.includes('index') || path.includes('main') || path.includes('app')) return 'entry'
-    if (path.includes('component')) return 'component'
-    if (path.includes('util') || path.includes('helper')) return 'utility'
-    if (path.includes('service') || path.includes('api')) return 'service'
-    if (path.includes('node_modules')) return 'external'
-    return 'dependency'
+  // Handle search and filter
+  const handleSearch = (term) => {
+    setSearchTerm(term)
+    // TODO: Implement search filtering
   }
 
-  const handleZoomIn = () => {
-    d3.select(svgRef.current).transition().call(
-      d3.zoom().scaleBy, 1.5
-    )
-  }
-
-  const handleZoomOut = () => {
-    d3.select(svgRef.current).transition().call(
-      d3.zoom().scaleBy, 1 / 1.5
-    )
+  const handleFilter = (type) => {
+    setFilterType(type)
+    // TODO: Implement type filtering
   }
 
   const handleReset = () => {
-    d3.select(svgRef.current).transition().call(
-      d3.zoom().transform,
-      d3.zoomIdentity
-    )
+    setSearchTerm('')
+    setFilterType('all')
+    setSelectedNode(null)
+    setHoveredNode(null)
   }
 
-  const handleExport = () => {
-    const svgElement = svgRef.current
-    const serializer = new XMLSerializer()
-    const svgString = serializer.serializeToString(svgElement)
-    const blob = new Blob([svgString], { type: 'image/svg+xml' })
-    const url = URL.createObjectURL(blob)
-    
-    const link = document.createElement('a')
-    link.href = url
-    link.download = 'dependency-graph.svg'
-    link.click()
-    
-    URL.revokeObjectURL(url)
-  }
-
-  if (!data || !data.files || data.files.length === 0) {
+  // Show empty state if no data
+  if (!data || !data.files || !Array.isArray(data.files) || data.files.length === 0) {
     return (
-      <div className="h-full flex items-center justify-center">
-        <div className="text-center space-y-4">
-          <GitBranch className="w-16 h-16 text-gray-600 mx-auto" />
-          <div>
-            <h3 className="text-lg font-semibold text-gray-300">No Dependencies Found</h3>
-            <p className="text-gray-500">Run a scan to visualize your project's dependency graph</p>
-          </div>
-        </div>
+      <div className="relative w-full h-full">
+        <EmptyState 
+          message="No scan data available. Please run a code scan to generate dependency graph."
+          action="Run Scan"
+        />
       </div>
     )
   }
+
+  const processedDeps = processDependencies(data.dependencies);
+  const nodeCount = data.files.length;
+  const linkCount = Object.keys(processedDeps).length;
 
   return (
-    <div className="h-full flex flex-col">
+    <div className="relative w-full h-full">
+      <div ref={containerRef} className="w-full h-full">
+        <svg ref={svgRef} className="w-full h-full" />
+      </div>
+      
+      {/* Legend */}
+      <Legend 
+        nodeTypes={nodeTypes} 
+        onFilterChange={handleFilter}
+      />
+      
       {/* Controls */}
-      <div className="flex items-center justify-between p-4 bg-gray-800/30 rounded-lg mb-4">
-        <div className="flex items-center space-x-4">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Search nodes..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="input-field pl-10 pr-4 py-2 w-48 text-sm"
-            />
-          </div>
-
-          <select
-            value={filterType}
-            onChange={(e) => setFilterType(e.target.value)}
-            className="input-field py-2 px-3 text-sm"
-          >
-            <option value="all">All Types</option>
-            <option value="entry">Entry Points</option>
-            <option value="component">Components</option>
-            <option value="utility">Utilities</option>
-            <option value="service">Services</option>
-            <option value="dependency">Dependencies</option>
-          </select>
-        </div>
-
-        <div className="flex items-center space-x-2">
-          <div className="text-sm text-gray-400 mr-4">
-            Zoom: {Math.round(zoomLevel * 100)}%
-          </div>
-          
-          <button
-            onClick={handleZoomIn}
-            className="p-2 rounded-lg bg-gray-700/50 hover:bg-gray-600/50 transition-colors"
-          >
-            <ZoomIn className="w-4 h-4 text-gray-300" />
-          </button>
-          
-          <button
-            onClick={handleZoomOut}
-            className="p-2 rounded-lg bg-gray-700/50 hover:bg-gray-600/50 transition-colors"
-          >
-            <ZoomOut className="w-4 h-4 text-gray-300" />
-          </button>
-          
-          <button
-            onClick={handleReset}
-            className="p-2 rounded-lg bg-gray-700/50 hover:bg-gray-600/50 transition-colors"
-          >
-            <RotateCcw className="w-4 h-4 text-gray-300" />
-          </button>
-          
-          <button
-            onClick={handleExport}
-            className="p-2 rounded-lg bg-gray-700/50 hover:bg-gray-600/50 transition-colors"
-          >
-            <Download className="w-4 h-4 text-gray-300" />
-          </button>
-        </div>
-      </div>
-
-      {/* Graph Container */}
-      <div className="flex-1 relative">
-        <div ref={containerRef} className="w-full h-full rounded-lg overflow-hidden">
-          <svg ref={svgRef} className="w-full h-full" />
-        </div>
-
-        {/* Legend */}
-        <div className="absolute top-4 left-4 glass-panel p-3 space-y-2">
-          <h4 className="text-sm font-semibold text-gray-300 mb-2">Legend</h4>
-          {Object.entries(nodeTypes).map(([type, config]) => (
-            <div key={type} className="flex items-center space-x-2 text-xs">
-              <div
-                className="w-3 h-3 rounded-full"
-                style={{ backgroundColor: config.color }}
-              />
-              <span className="text-gray-400 capitalize">{type}</span>
-            </div>
-          ))}
-        </div>
-
-        {/* Node Details Panel */}
-        {selectedNode && (
-          <div className="absolute top-4 right-4 w-72 glass-panel p-4 animate-slide-up">
-            <div className="flex items-start justify-between mb-3">
-              <div className="flex items-center space-x-2">
-                <div
-                  className="w-4 h-4 rounded-full"
-                  style={{ backgroundColor: nodeTypes[selectedNode.type]?.color }}
-                />
-                <h4 className="text-sm font-semibold text-white">
-                  {selectedNode.name}
-                </h4>
+      <Controls 
+        onSearch={handleSearch}
+        onFilter={handleFilter}
+        onReset={handleReset}
+        nodeCount={nodeCount}
+        linkCount={linkCount}
+      />
+      
+      {/* Tooltip */}
+      <Tooltip 
+        node={hoveredNode}
+        position={tooltipPosition}
+      />
+      
+      {/* Selected Node Info */}
+      {selectedNode && (
+        <div className="absolute bottom-4 left-4 bg-gray-800/90 p-3 rounded-lg backdrop-blur-sm border border-gray-600 max-w-xs">
+          <h4 className="text-sm font-semibold text-white mb-2">Selected File</h4>
+          <div className="text-xs text-gray-300">
+            <div><strong>Name:</strong> {selectedNode.label}</div>
+            <div><strong>Type:</strong> {nodeTypes[selectedNode.type]?.label || selectedNode.type}</div>
+            <div><strong>Lines:</strong> {selectedNode.lines}</div>
+            <div><strong>Complexity:</strong> {selectedNode.complexity}</div>
+            {selectedNode.filePath && (
+              <div className="mt-1 text-gray-400 truncate">
+                {selectedNode.filePath}
               </div>
-              <button
-                onClick={() => setSelectedNode(null)}
-                className="text-gray-400 hover:text-gray-300"
-              >
-                ×
-              </button>
-            </div>
-
-            <div className="space-y-2 text-sm">
-              <div>
-                <span className="text-gray-400">Path:</span>
-                <div className="font-mono text-xs text-gray-300 bg-gray-800/50 p-1 rounded mt-1">
-                  {selectedNode.fullPath}
-                </div>
-              </div>
-              
-              <div className="grid grid-cols-2 gap-2 text-xs">
-                <div>
-                  <span className="text-gray-400">Lines:</span>
-                  <div className="text-white">{selectedNode.lines}</div>
-                </div>
-                <div>
-                  <span className="text-gray-400">Size:</span>
-                  <div className="text-white">
-                    {(selectedNode.fileSize / 1024).toFixed(1)}KB
-                  </div>
-                </div>
-                <div>
-                  <span className="text-gray-400">Type:</span>
-                  <div className="text-white capitalize">{selectedNode.type}</div>
-                </div>
-                <div>
-                  <span className="text-gray-400">Complexity:</span>
-                  <div className={`${selectedNode.complexity > 5 ? 'text-yellow-400' : 'text-green-400'}`}>
-                    {selectedNode.complexity}
-                  </div>
-                </div>
-              </div>
-
-              {selectedNode.imports?.length > 0 && (
-                <div>
-                  <span className="text-gray-400">Imports:</span>
-                  <div className="text-xs text-gray-300 mt-1">
-                    {selectedNode.imports.length} dependencies
-                  </div>
-                </div>
-              )}
-
-              {selectedNode.exports?.length > 0 && (
-                <div>
-                  <span className="text-gray-400">Exports:</span>
-                  <div className="text-xs text-gray-300 mt-1">
-                    {selectedNode.exports.length} exports
-                  </div>
-                </div>
-              )}
-            </div>
+            )}
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   )
 }

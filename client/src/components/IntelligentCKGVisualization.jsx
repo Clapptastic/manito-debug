@@ -883,7 +883,7 @@ const IntelligentCKGVisualization = ({
         {/* Intelligent Tooltip */}
         <div
           ref={tooltipRef}
-          className="absolute pointer-events-none opacity-0 transition-opacity z-50"
+          className="absolute pointer-events-none opacity-0 transition-opacity z-[99995]"
           style={{ left: 0, top: 0 }}
         />
       </div>

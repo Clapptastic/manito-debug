@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import {
   X,
   Settings,
@@ -123,23 +124,23 @@ function SettingsModal({ isOpen, onClose, healthData, isConnected }) {
   if (!isOpen) return null
 
   const renderGeneralSettings = () => (
-    <div className="space-y-6">
-      <div className="space-y-4">
-        <h3 className="text-lg font-semibold text-white flex items-center space-x-2">
-          <Globe className="w-5 h-5 text-blue-400" />
+    <div className="space-y-4 sm:space-y-6">
+      <div className="space-y-3 sm:space-y-4">
+        <h3 className="text-base sm:text-lg font-semibold text-white flex items-center space-x-2">
+          <Globe className="w-4 h-4 sm:w-5 sm:h-5 text-blue-400" />
           <span>Language & Region</span>
         </h3>
         
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-3 sm:gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
+            <label className="block text-xs sm:text-sm font-medium text-gray-300 mb-1 sm:mb-2">
               Language
               <HelpTooltip content="Choose your preferred language for the interface" />
             </label>
             <select
               value={settings.language}
               onChange={(e) => handleSettingChange('language', e.target.value)}
-              className="input-field w-full"
+              className="input-field w-full text-sm"
             >
               <option value="en">English</option>
               <option value="es">Español</option>
@@ -152,36 +153,36 @@ function SettingsModal({ isOpen, onClose, healthData, isConnected }) {
         </div>
       </div>
 
-      <div className="space-y-4">
-        <h3 className="text-lg font-semibold text-white flex items-center space-x-2">
-          <Settings className="w-5 h-5 text-green-400" />
+      <div className="space-y-3 sm:space-y-4">
+        <h3 className="text-base sm:text-lg font-semibold text-white flex items-center space-x-2">
+          <Settings className="w-4 h-4 sm:w-5 sm:h-5 text-green-400" />
           <span>Behavior</span>
         </h3>
         
-        <div className="space-y-3">
-          <label className="flex items-center justify-between">
+        <div className="space-y-2 sm:space-y-3">
+          <label className="flex items-center justify-between p-2 sm:p-3 bg-gray-800/30 rounded-lg">
             <div className="flex items-center space-x-2">
-              <span className="text-sm text-gray-300">Auto-save settings</span>
+              <span className="text-xs sm:text-sm text-gray-300">Auto-save settings</span>
               <HelpTooltip content="Automatically save your preferences as you change them" />
             </div>
             <input
               type="checkbox"
               checked={settings.autoSave}
               onChange={(e) => handleSettingChange('autoSave', e.target.checked)}
-              className="rounded border-gray-600 text-primary-600 focus:ring-primary-500"
+              className="rounded border-gray-600 text-primary-600 focus:ring-primary-500 w-4 h-4 sm:w-5 sm:h-5"
             />
           </label>
           
-          <label className="flex items-center justify-between">
+          <label className="flex items-center justify-between p-2 sm:p-3 bg-gray-800/30 rounded-lg">
             <div className="flex items-center space-x-2">
-              <span className="text-sm text-gray-300">Confirm destructive actions</span>
+              <span className="text-xs sm:text-sm text-gray-300">Confirm destructive actions</span>
               <HelpTooltip content="Show confirmation dialogs for actions like deleting or clearing data" />
             </div>
             <input
               type="checkbox"
               checked={settings.confirmActions}
               onChange={(e) => handleSettingChange('confirmActions', e.target.checked)}
-              className="rounded border-gray-600 text-primary-600 focus:ring-primary-500"
+              className="rounded border-gray-600 text-primary-600 focus:ring-primary-500 w-4 h-4 sm:w-5 sm:h-5"
             />
           </label>
         </div>
@@ -190,22 +191,22 @@ function SettingsModal({ isOpen, onClose, healthData, isConnected }) {
   )
 
   const renderAppearanceSettings = () => (
-    <div className="space-y-6">
-      <div className="space-y-4">
-        <h3 className="text-lg font-semibold text-white flex items-center space-x-2">
-          <Eye className="w-5 h-5 text-purple-400" />
+    <div className="space-y-4 sm:space-y-6">
+      <div className="space-y-3 sm:space-y-4">
+        <h3 className="text-base sm:text-lg font-semibold text-white flex items-center space-x-2">
+          <Eye className="w-4 h-4 sm:w-5 sm:h-5 text-purple-400" />
           <span>Visual Preferences</span>
         </h3>
         
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-3 sm:gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
+            <label className="block text-xs sm:text-sm font-medium text-gray-300 mb-1 sm:mb-2">
               Font Size
             </label>
             <select
               value={settings.fontSize}
               onChange={(e) => handleSettingChange('fontSize', e.target.value)}
-              className="input-field w-full"
+              className="input-field w-full text-sm"
             >
               <option value="small">Small</option>
               <option value="medium">Medium</option>
@@ -215,13 +216,13 @@ function SettingsModal({ isOpen, onClose, healthData, isConnected }) {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
+            <label className="block text-xs sm:text-sm font-medium text-gray-300 mb-1 sm:mb-2">
               Sidebar Position
             </label>
             <select
               value={settings.sidebarPosition}
               onChange={(e) => handleSettingChange('sidebarPosition', e.target.value)}
-              className="input-field w-full"
+              className="input-field w-full text-sm"
             >
               <option value="left">Left</option>
               <option value="right">Right</option>
@@ -229,13 +230,13 @@ function SettingsModal({ isOpen, onClose, healthData, isConnected }) {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
+            <label className="block text-xs sm:text-sm font-medium text-gray-300 mb-1 sm:mb-2">
               Color Scheme
             </label>
             <select
               value={settings.colorScheme}
               onChange={(e) => handleSettingChange('colorScheme', e.target.value)}
-              className="input-field w-full"
+              className="input-field w-full text-sm"
             >
               <option value="default">Default</option>
               <option value="blue">Blue</option>
@@ -246,24 +247,24 @@ function SettingsModal({ isOpen, onClose, healthData, isConnected }) {
           </div>
         </div>
         
-        <div className="space-y-3">
-          <label className="flex items-center justify-between">
-            <span className="text-sm text-gray-300">Compact mode</span>
+        <div className="space-y-2 sm:space-y-3">
+          <label className="flex items-center justify-between p-2 sm:p-3 bg-gray-800/30 rounded-lg">
+            <span className="text-xs sm:text-sm text-gray-300">Compact mode</span>
             <input
               type="checkbox"
               checked={settings.compactMode}
               onChange={(e) => handleSettingChange('compactMode', e.target.checked)}
-              className="rounded border-gray-600 text-primary-600 focus:ring-primary-500"
+              className="rounded border-gray-600 text-primary-600 focus:ring-primary-500 w-4 h-4 sm:w-5 sm:h-5"
             />
           </label>
           
-          <label className="flex items-center justify-between">
-            <span className="text-sm text-gray-300">Show line numbers</span>
+          <label className="flex items-center justify-between p-2 sm:p-3 bg-gray-800/30 rounded-lg">
+            <span className="text-xs sm:text-sm text-gray-300">Show line numbers</span>
             <input
               type="checkbox"
               checked={settings.showLineNumbers}
               onChange={(e) => handleSettingChange('showLineNumbers', e.target.checked)}
-              className="rounded border-gray-600 text-primary-600 focus:ring-primary-500"
+              className="rounded border-gray-600 text-primary-600 focus:ring-primary-500 w-4 h-4 sm:w-5 sm:h-5"
             />
           </label>
         </div>
@@ -272,37 +273,37 @@ function SettingsModal({ isOpen, onClose, healthData, isConnected }) {
   )
 
   const renderNotificationSettings = () => (
-    <div className="space-y-6">
-      <div className="space-y-4">
-        <h3 className="text-lg font-semibold text-white flex items-center space-x-2">
-          <Bell className="w-5 h-5 text-yellow-400" />
+    <div className="space-y-4 sm:space-y-6">
+      <div className="space-y-3 sm:space-y-4">
+        <h3 className="text-base sm:text-lg font-semibold text-white flex items-center space-x-2">
+          <Bell className="w-4 h-4 sm:w-5 sm:h-5 text-yellow-400" />
           <span>Notification Preferences</span>
         </h3>
         
-        <div className="space-y-3">
-          <label className="flex items-center justify-between">
+        <div className="space-y-2 sm:space-y-3">
+          <label className="flex items-center justify-between p-2 sm:p-3 bg-gray-800/30 rounded-lg">
             <div className="flex items-center space-x-2">
-              <span className="text-sm text-gray-300">Enable notifications</span>
+              <span className="text-xs sm:text-sm text-gray-300">Enable notifications</span>
               <HelpTooltip content="Show toast notifications for various events" />
             </div>
             <input
               type="checkbox"
               checked={settings.enableNotifications}
               onChange={(e) => handleSettingChange('enableNotifications', e.target.checked)}
-              className="rounded border-gray-600 text-primary-600 focus:ring-primary-500"
+              className="rounded border-gray-600 text-primary-600 focus:ring-primary-500 w-4 h-4 sm:w-5 sm:h-5"
             />
           </label>
           
-          <label className="flex items-center justify-between">
+          <label className="flex items-center justify-between p-2 sm:p-3 bg-gray-800/30 rounded-lg">
             <div className="flex items-center space-x-2">
-              <span className="text-sm text-gray-300">Sound effects</span>
-              <Volume2 className="w-4 h-4 text-gray-400" />
+              <span className="text-xs sm:text-sm text-gray-300">Sound effects</span>
+              <Volume2 className="w-3 h-3 sm:w-4 sm:h-4 text-gray-400" />
             </div>
             <input
               type="checkbox"
               checked={settings.soundEnabled}
               onChange={(e) => handleSettingChange('soundEnabled', e.target.checked)}
-              className="rounded border-gray-600 text-primary-600 focus:ring-primary-500"
+              className="rounded border-gray-600 text-primary-600 focus:ring-primary-500 w-4 h-4 sm:w-5 sm:h-5"
             />
           </label>
           
@@ -312,7 +313,7 @@ function SettingsModal({ isOpen, onClose, healthData, isConnected }) {
               type="checkbox"
               checked={settings.scanCompleteNotify}
               onChange={(e) => handleSettingChange('scanCompleteNotify', e.target.checked)}
-              className="rounded border-gray-600 text-primary-600 focus:ring-primary-500"
+              className="rounded border-gray-600 text-primary-600 focus:ring-primary-500 w-4 h-4 sm:w-5 sm:h-5"
             />
           </label>
           
@@ -322,7 +323,7 @@ function SettingsModal({ isOpen, onClose, healthData, isConnected }) {
               type="checkbox"
               checked={settings.errorNotifications}
               onChange={(e) => handleSettingChange('errorNotifications', e.target.checked)}
-              className="rounded border-gray-600 text-primary-600 focus:ring-primary-500"
+              className="rounded border-gray-600 text-primary-600 focus:ring-primary-500 w-4 h-4 sm:w-5 sm:h-5"
             />
           </label>
           
@@ -332,7 +333,7 @@ function SettingsModal({ isOpen, onClose, healthData, isConnected }) {
               type="checkbox"
               checked={settings.updateNotifications}
               onChange={(e) => handleSettingChange('updateNotifications', e.target.checked)}
-              className="rounded border-gray-600 text-primary-600 focus:ring-primary-500"
+              className="rounded border-gray-600 text-primary-600 focus:ring-primary-500 w-4 h-4 sm:w-5 sm:h-5"
             />
           </label>
         </div>
@@ -404,7 +405,7 @@ function SettingsModal({ isOpen, onClose, healthData, isConnected }) {
               type="checkbox"
               checked={settings.deepAnalysis}
               onChange={(e) => handleSettingChange('deepAnalysis', e.target.checked)}
-              className="rounded border-gray-600 text-primary-600 focus:ring-primary-500"
+              className="rounded border-gray-600 text-primary-600 focus:ring-primary-500 w-4 h-4 sm:w-5 sm:h-5"
             />
           </label>
           
@@ -414,7 +415,7 @@ function SettingsModal({ isOpen, onClose, healthData, isConnected }) {
               type="checkbox"
               checked={settings.trackDependencies}
               onChange={(e) => handleSettingChange('trackDependencies', e.target.checked)}
-              className="rounded border-gray-600 text-primary-600 focus:ring-primary-500"
+              className="rounded border-gray-600 text-primary-600 focus:ring-primary-500 w-4 h-4 sm:w-5 sm:h-5"
             />
           </label>
           
@@ -424,7 +425,7 @@ function SettingsModal({ isOpen, onClose, healthData, isConnected }) {
               type="checkbox"
               checked={settings.detectCircular}
               onChange={(e) => handleSettingChange('detectCircular', e.target.checked)}
-              className="rounded border-gray-600 text-primary-600 focus:ring-primary-500"
+              className="rounded border-gray-600 text-primary-600 focus:ring-primary-500 w-4 h-4 sm:w-5 sm:h-5"
             />
           </label>
         </div>
@@ -467,7 +468,7 @@ function SettingsModal({ isOpen, onClose, healthData, isConnected }) {
               type="checkbox"
               checked={settings.enableCache}
               onChange={(e) => handleSettingChange('enableCache', e.target.checked)}
-              className="rounded border-gray-600 text-primary-600 focus:ring-primary-500"
+              className="rounded border-gray-600 text-primary-600 focus:ring-primary-500 w-4 h-4 sm:w-5 sm:h-5"
             />
           </label>
           
@@ -480,7 +481,7 @@ function SettingsModal({ isOpen, onClose, healthData, isConnected }) {
               type="checkbox"
               checked={settings.preloadResults}
               onChange={(e) => handleSettingChange('preloadResults', e.target.checked)}
-              className="rounded border-gray-600 text-primary-600 focus:ring-primary-500"
+              className="rounded border-gray-600 text-primary-600 focus:ring-primary-500 w-4 h-4 sm:w-5 sm:h-5"
             />
           </label>
           
@@ -493,7 +494,7 @@ function SettingsModal({ isOpen, onClose, healthData, isConnected }) {
               type="checkbox"
               checked={settings.backgroundScanning}
               onChange={(e) => handleSettingChange('backgroundScanning', e.target.checked)}
-              className="rounded border-gray-600 text-primary-600 focus:ring-primary-500"
+              className="rounded border-gray-600 text-primary-600 focus:ring-primary-500 w-4 h-4 sm:w-5 sm:h-5"
             />
           </label>
         </div>
@@ -519,7 +520,7 @@ function SettingsModal({ isOpen, onClose, healthData, isConnected }) {
               type="checkbox"
               checked={settings.allowRemoteScanning}
               onChange={(e) => handleSettingChange('allowRemoteScanning', e.target.checked)}
-              className="rounded border-gray-600 text-primary-600 focus:ring-primary-500"
+              className="rounded border-gray-600 text-primary-600 focus:ring-primary-500 w-4 h-4 sm:w-5 sm:h-5"
             />
           </label>
           
@@ -532,7 +533,7 @@ function SettingsModal({ isOpen, onClose, healthData, isConnected }) {
               type="checkbox"
               checked={settings.encryptLocalData}
               onChange={(e) => handleSettingChange('encryptLocalData', e.target.checked)}
-              className="rounded border-gray-600 text-primary-600 focus:ring-primary-500"
+              className="rounded border-gray-600 text-primary-600 focus:ring-primary-500 w-4 h-4 sm:w-5 sm:h-5"
             />
           </label>
           
@@ -545,7 +546,7 @@ function SettingsModal({ isOpen, onClose, healthData, isConnected }) {
               type="checkbox"
               checked={settings.shareAnalytics}
               onChange={(e) => handleSettingChange('shareAnalytics', e.target.checked)}
-              className="rounded border-gray-600 text-primary-600 focus:ring-primary-500"
+              className="rounded border-gray-600 text-primary-600 focus:ring-primary-500 w-4 h-4 sm:w-5 sm:h-5"
             />
           </label>
         </div>
@@ -653,9 +654,12 @@ function SettingsModal({ isOpen, onClose, healthData, isConnected }) {
                   })}
                   className="input-field text-xs w-32"
                 >
-                  <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
-                  <option value="gpt-4">GPT-4</option>
+                  <option value="gpt-5">GPT-5 (Latest)</option>
+                  <option value="gpt-4o">GPT-4o</option>
+                  <option value="gpt-4o-mini">GPT-4o Mini</option>
                   <option value="gpt-4-turbo">GPT-4 Turbo</option>
+                  <option value="gpt-4">GPT-4</option>
+                  <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
                 </select>
                 <a 
                   href="https://platform.openai.com/api-keys" 
@@ -789,7 +793,7 @@ function SettingsModal({ isOpen, onClose, healthData, isConnected }) {
               type="checkbox"
               checked={settings.enableAIInsights}
               onChange={(e) => handleSettingChange('enableAIInsights', e.target.checked)}
-              className="rounded border-gray-600 text-primary-600 focus:ring-primary-500"
+              className="rounded border-gray-600 text-primary-600 focus:ring-primary-500 w-4 h-4 sm:w-5 sm:h-5"
             />
           </label>
         </div>
@@ -1013,150 +1017,154 @@ function SettingsModal({ isOpen, onClose, healthData, isConnected }) {
   )
 
   return (
-            <div className="modal-container z-[99994] p-4 sm:p-6 animate-fade-in">
-      <div ref={modalRef} className="modal-content w-full max-w-4xl animate-scale-up">
-        {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-700/50">
-          <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-r from-blue-500 to-purple-500 flex items-center justify-center shadow-lg">
-              <Settings className="w-5 h-5 text-white" />
-            </div>
-            <div>
-              <h2 className="text-xl font-bold text-white">Settings</h2>
-              <p className="text-sm text-gray-400">Customize your ManitoDebug experience</p>
-            </div>
-          </div>
-          
-          <div className="flex items-center space-x-3">
-            {hasChanges && (
-              <div className="flex items-center space-x-2 px-3 py-1.5 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
-                <div className="w-2 h-2 bg-yellow-400 rounded-full animate-pulse"></div>
-                <span className="text-xs text-yellow-400 font-medium">Unsaved changes</span>
+    createPortal(
+      <div className="modal-container z-[99994] p-4 sm:p-6 animate-fade-in" onClick={onClose}>
+        <div ref={modalRef} className="modal-content w-full max-w-4xl animate-scale-up" onClick={(e) => e.stopPropagation()}>
+          {/* Header */}
+          <div className="flex items-center justify-between p-4 sm:p-6 border-b border-gray-700/50">
+            <div className="flex items-center space-x-2 sm:space-x-3">
+              <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-r from-blue-500 to-purple-500 flex items-center justify-center shadow-lg">
+                <Settings className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
               </div>
-            )}
-            <KeyboardTooltip shortcut="Escape" description="Close settings">
-              <button
-                onClick={onClose}
-                className="p-2 rounded-lg hover:bg-gray-700/50 transition-all duration-200 hover:scale-105 focus:ring-2 focus:ring-blue-500/50 focus:outline-none"
-                aria-label="Close settings"
-              >
-                <X className="w-5 h-5 text-gray-400" />
-              </button>
-            </KeyboardTooltip>
-          </div>
-        </div>
-
-        {/* Mobile Tab Selector */}
-        <div className="md:hidden border-b border-gray-700/50 p-4">
-          <select
-            value={activeTab}
-            onChange={(e) => setActiveTab(e.target.value)}
-            className="w-full px-3 py-2 bg-gray-800/50 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500/50 focus:outline-none"
-          >
-            {tabs.map(tab => (
-              <option key={tab.id} value={tab.id}>{tab.label}</option>
-            ))}
-          </select>
-        </div>
-
-        <div className="flex flex-1 overflow-hidden">
-          {/* Sidebar */}
-          <div className="w-64 border-r border-gray-700/50 p-4 hidden md:block">
-            <nav className="space-y-2" role="tablist">
-              {tabs.map(tab => {
-                const Icon = tab.icon
-                const isActive = activeTab === tab.id
-                return (
-                  <button
-                    key={tab.id}
-                    onClick={() => setActiveTab(tab.id)}
-                    role="tab"
-                    aria-selected={isActive}
-                    aria-controls={`panel-${tab.id}`}
-                    className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50 ${
-                      isActive
-                        ? 'bg-gradient-to-r from-primary-600/20 to-primary-500/10 text-primary-400 border border-primary-600/30 shadow-lg'
-                        : 'text-gray-300 hover:bg-gray-700/30 hover:text-white hover:scale-[1.02]'
-                    }`}
-                  >
-                    <Icon className={`w-4 h-4 transition-colors ${isActive ? 'text-primary-400' : 'text-gray-400'}`} />
-                    <span className="font-medium">{tab.label}</span>
-                    {isActive && (
-                      <div className="ml-auto w-2 h-2 bg-primary-400 rounded-full"></div>
-                    )}
-                  </button>
-                )
-              })}
-            </nav>
-          </div>
-
-          {/* Content */}
-          <div className="flex-1 flex flex-col">
-            <div className="flex-1 p-6 overflow-y-auto" role="tabpanel" id={`panel-${activeTab}`}>
-              <div className="animate-fade-in">
-                {activeTab === 'general' && renderGeneralSettings()}
-                {activeTab === 'appearance' && renderAppearanceSettings()}
-                {activeTab === 'notifications' && renderNotificationSettings()}
-                {activeTab === 'analysis' && renderAnalysisSettings()}
-                {activeTab === 'performance' && renderPerformanceSettings()}
-                {activeTab === 'security' && renderSecuritySettings()}
-                {activeTab === 'ai' && renderAISettings()}
-                {activeTab === 'environment' && renderEnvironmentStatus()}
+              <div>
+                <h2 className="text-lg sm:text-xl font-bold text-white">Settings</h2>
+                <p className="text-xs sm:text-sm text-gray-400">Customize your ManitoDebug experience</p>
               </div>
             </div>
-
-            {/* Footer */}
-            <div className="border-t border-gray-700/50 p-4 flex items-center justify-between">
-              <div className="flex items-center space-x-2">
-                <button
-                  onClick={exportSettings}
-                  className="btn-ghost btn-sm flex items-center space-x-1 hover:bg-blue-500/10 hover:text-blue-400 transition-all duration-200"
-                >
-                  <Download className="w-3 h-3" />
-                  <span>Export</span>
-                </button>
-                
-                <label className="btn-ghost btn-sm flex items-center space-x-1 cursor-pointer hover:bg-green-500/10 hover:text-green-400 transition-all duration-200">
-                  <Upload className="w-3 h-3" />
-                  <span>Import</span>
-                  <input
-                    type="file"
-                    accept=".json"
-                    onChange={importSettings}
-                    className="hidden"
-                  />
-                </label>
-                
-                <button
-                  onClick={resetSettings}
-                  className="btn-ghost btn-sm flex items-center space-x-1 text-yellow-400 hover:text-yellow-300 hover:bg-yellow-500/10 transition-all duration-200"
-                >
-                  <RotateCcw className="w-3 h-3" />
-                  <span>Reset</span>
-                </button>
-              </div>
-              
-              <div className="flex items-center space-x-3">
+            
+            <div className="flex items-center space-x-2 sm:space-x-3">
+              {hasChanges && (
+                <div className="flex items-center space-x-1 sm:space-x-2 px-2 sm:px-3 py-1 sm:py-1.5 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
+                  <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-yellow-400 rounded-full animate-pulse"></div>
+                  <span className="text-xs text-yellow-400 font-medium hidden sm:inline">Unsaved changes</span>
+                  <span className="text-xs text-yellow-400 font-medium sm:hidden">Changes</span>
+                </div>
+              )}
+              <KeyboardTooltip shortcut="Escape" description="Close settings">
                 <button
                   onClick={onClose}
-                  className="px-4 py-2 text-gray-400 hover:text-gray-200 hover:bg-gray-700/50 rounded-lg transition-all duration-200 focus:ring-2 focus:ring-gray-500/50 focus:outline-none"
+                  className="p-1.5 sm:p-2 rounded-lg hover:bg-gray-700/50 transition-all duration-200 hover:scale-105 focus:ring-2 focus:ring-blue-500/50 focus:outline-none"
+                  aria-label="Close settings"
                 >
-                  Cancel
+                  <X className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400" />
                 </button>
-                <button
-                  onClick={saveSettings}
-                  disabled={!hasChanges}
-                  className="px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white rounded-lg font-medium transition-all duration-200 flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed focus:ring-2 focus:ring-blue-500/50 focus:outline-none hover:scale-105"
-                >
-                  <Save className="w-4 h-4" />
-                  <span>{hasChanges ? 'Save Changes' : 'No Changes'}</span>
-                </button>
+              </KeyboardTooltip>
+            </div>
+          </div>
+
+          {/* Mobile Tab Selector */}
+          <div className="md:hidden border-b border-gray-700/50 p-3 sm:p-4">
+            <select
+              value={activeTab}
+              onChange={(e) => setActiveTab(e.target.value)}
+              className="w-full px-3 py-2 bg-gray-800/50 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500/50 focus:outline-none text-sm"
+            >
+              {tabs.map(tab => (
+                <option key={tab.id} value={tab.id}>{tab.label}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="flex flex-1 overflow-hidden">
+            {/* Sidebar */}
+            <div className="w-48 sm:w-64 border-r border-gray-700/50 p-3 sm:p-4 hidden md:block">
+              <nav className="space-y-1 sm:space-y-2" role="tablist">
+                {tabs.map(tab => {
+                  const Icon = tab.icon
+                  const isActive = activeTab === tab.id
+                  return (
+                    <button
+                      key={tab.id}
+                      onClick={() => setActiveTab(tab.id)}
+                      role="tab"
+                      aria-selected={isActive}
+                      aria-controls={`panel-${tab.id}`}
+                      className={`w-full flex items-center space-x-2 sm:space-x-3 px-3 sm:px-4 py-2 sm:py-3 rounded-xl text-xs sm:text-sm transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50 ${
+                        isActive
+                          ? 'bg-gradient-to-r from-primary-600/20 to-primary-500/10 text-primary-400 border border-primary-600/30 shadow-lg'
+                          : 'text-gray-300 hover:bg-gray-700/30 hover:text-white hover:scale-[1.02]'
+                      }`}
+                    >
+                      <Icon className={`w-3 h-3 sm:w-4 sm:h-4 transition-colors ${isActive ? 'text-primary-400' : 'text-gray-400'}`} />
+                      <span className="font-medium">{tab.label}</span>
+                      {isActive && (
+                        <div className="ml-auto w-1.5 h-1.5 sm:w-2 sm:h-2 bg-primary-400 rounded-full"></div>
+                      )}
+                    </button>
+                  )
+                })}
+              </nav>
+            </div>
+
+            {/* Content */}
+            <div className="flex-1 flex flex-col">
+              <div className="flex-1 p-3 sm:p-6 overflow-y-auto" role="tabpanel" id={`panel-${activeTab}`}>
+                <div className="animate-fade-in">
+                  {activeTab === 'general' && renderGeneralSettings()}
+                  {activeTab === 'appearance' && renderAppearanceSettings()}
+                  {activeTab === 'notifications' && renderNotificationSettings()}
+                  {activeTab === 'analysis' && renderAnalysisSettings()}
+                  {activeTab === 'performance' && renderPerformanceSettings()}
+                  {activeTab === 'security' && renderSecuritySettings()}
+                  {activeTab === 'ai' && renderAISettings()}
+                  {activeTab === 'environment' && renderEnvironmentStatus()}
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div className="border-t border-gray-700/50 p-3 sm:p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between space-y-3 sm:space-y-0">
+                <div className="flex items-center space-x-1 sm:space-x-2">
+                  <button
+                    onClick={exportSettings}
+                    className="btn-ghost btn-sm flex items-center space-x-1 hover:bg-blue-500/10 hover:text-blue-400 transition-all duration-200 text-xs sm:text-sm"
+                  >
+                    <Download className="w-3 h-3" />
+                    <span>Export</span>
+                  </button>
+                  
+                  <label className="btn-ghost btn-sm flex items-center space-x-1 cursor-pointer hover:bg-green-500/10 hover:text-green-400 transition-all duration-200 text-xs sm:text-sm">
+                    <Upload className="w-3 h-3" />
+                    <span>Import</span>
+                    <input
+                      type="file"
+                      accept=".json"
+                      onChange={importSettings}
+                      className="hidden"
+                    />
+                  </label>
+                  
+                  <button
+                    onClick={resetSettings}
+                    className="btn-ghost btn-sm flex items-center space-x-1 text-yellow-400 hover:text-yellow-300 hover:bg-yellow-500/10 transition-all duration-200 text-xs sm:text-sm"
+                  >
+                    <RotateCcw className="w-3 h-3" />
+                    <span>Reset</span>
+                  </button>
+                </div>
+                
+                <div className="flex items-center space-x-2 sm:space-x-3 w-full sm:w-auto">
+                  <button
+                    onClick={onClose}
+                    className="flex-1 sm:flex-none px-3 sm:px-4 py-2 text-gray-400 hover:text-gray-200 hover:bg-gray-700/50 rounded-lg transition-all duration-200 focus:ring-2 focus:ring-gray-500/50 focus:outline-none text-sm"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={saveSettings}
+                    disabled={!hasChanges}
+                    className="flex-1 sm:flex-none px-3 sm:px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white rounded-lg font-medium transition-all duration-200 flex items-center justify-center space-x-1 sm:space-x-2 disabled:opacity-50 disabled:cursor-not-allowed focus:ring-2 focus:ring-blue-500/50 focus:outline-none hover:scale-105 text-sm"
+                  >
+                    <Save className="w-3 h-3 sm:w-4 sm:h-4" />
+                    <span>{hasChanges ? 'Save Changes' : 'No Changes'}</span>
+                  </button>
+                </div>
               </div>
             </div>
           </div>
         </div>
-      </div>
-    </div>
+      </div>,
+      document.body
+    )
   )
 }
 

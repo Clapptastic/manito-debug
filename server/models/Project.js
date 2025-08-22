@@ -179,12 +179,7 @@ class Project {
         console.warn('Could not delete graph nodes for project:', error.message);
       }
       
-      // Delete related code chunks
-      try {
-        await enhancedDb.query('DELETE FROM code_chunks WHERE project_id = $1', [this.id]);
-      } catch (error) {
-        console.warn('Could not delete code chunks for project:', error.message);
-      }
+      // Code chunks will be automatically deleted via CASCADE when graph nodes are deleted
       
       // Finally delete the project
       const result = await enhancedDb.delete('projects', 'id = $1', [this.id]);

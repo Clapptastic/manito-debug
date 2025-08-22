@@ -275,12 +275,19 @@ function AppContent() {
 
   const handleUpload = async (file, projectName) => {
     try {
+      // Validate file parameter
+      if (!file || !file.name) {
+        console.error('Invalid file object:', file);
+        feedback.uploadInvalidFile();
+        return;
+      }
+
       setIsScanning(true)
       setScanStage('uploading')
       setScanProgress({ stage: 'uploading', progress: 0, files: 0, details: 'Preparing upload...' })
       feedback.uploadStarted()
       
-      // Validate file
+      // Validate file type
       if (!file.name.endsWith('.zip')) {
         feedback.uploadInvalidFile()
         return
@@ -367,7 +374,7 @@ function AppContent() {
           details: 'Analysis complete!'
         })
         
-        // Provide detailed feedback about the upload and scan
+        // Check if files were found
         const fileCount = result.data.files?.length || 0;
         const conflictCount = result.data.conflicts?.length || 0;
         
@@ -376,23 +383,21 @@ function AppContent() {
         } else {
           feedback.scanCompleted(fileCount, conflictCount);
         }
-        
-        feedback.uploadCompleted(projectName || file.name.replace('.zip', ''))
       } else {
-        console.error('Upload failed:', result.error)
-        setScanStage('error')
-        setScanProgress({ stage: 'error', progress: 0, files: 0, details: result.error || 'Upload failed' })
-        feedback.uploadFailed(result.error || 'Failed to upload and analyze project')
+        console.error('Upload failed:', result.error);
+        setScanStage('error');
+        setScanProgress({ stage: 'error', progress: 0, files: 0, details: result.error || 'Upload failed' });
+        feedback.scanFailed(result.error || 'Failed to upload and process file');
       }
     } catch (error) {
-      console.error('Upload error:', error)
-      setScanStage('error')
-      setScanProgress({ stage: 'error', progress: 0, files: 0, details: error.message })
-      handleErrorWithFeedback(error, 'upload operation', feedback)
+      console.error('Upload error:', error);
+      setScanStage('error');
+      setScanProgress({ stage: 'error', progress: 0, files: 0, details: error.message });
+      handleErrorWithFeedback(error, 'upload operation', feedback);
     } finally {
       setTimeout(() => {
-        setIsScanning(false)
-      }, 1000)
+        setIsScanning(false);
+      }, 1000);
     }
   }
 
@@ -481,6 +486,7 @@ function AppContent() {
           onToggleAI={() => setShowAIPanel(!showAIPanel)}
           onOpenSettings={() => setShowSettings(true)}
           onProjectSelect={(project) => {
+            console.log('App: Project selected:', project);
             setCurrentProject(project);
             setScanPath(project.path);
             toast.success(`Switched to project: ${project.name}`);
@@ -496,7 +502,7 @@ function AppContent() {
           }}
         />
       
-      <div className="flex flex-1 overflow-hidden flex-col lg:flex-row relative z-0">
+      <div className="flex flex-1 overflow-hidden flex-col lg:flex-row relative">
         <Sidebar 
           scanPath={scanPath}
           setScanPath={setScanPath}
@@ -508,9 +514,9 @@ function AppContent() {
           onOpenSettings={() => setShowSettings(true)}
         />
         
-        <main className="flex-1 overflow-hidden min-w-0 relative z-0">
+        <main className="flex-1 overflow-hidden min-w-0 relative">
           {isScanning ? (
-            <div className="h-full flex items-center justify-center">
+            <div className="h-full flex items-center justify-center p-4">
               <ScanningLoader 
                 progress={scanProgress.progress}
                 stage={scanProgress.stage}
@@ -520,20 +526,20 @@ function AppContent() {
           ) : scanResults ? (
             <div className="h-full flex flex-col">
               {/* Tab Navigation */}
-              <nav className="flex border-b border-gray-800 bg-gray-900 overflow-x-auto">
+              <nav className="flex border-b border-gray-800 bg-gray-900 overflow-x-auto scrollbar-hide">
                 {tabConfig.map((tab) => (
                   <button
                     key={tab.id}
                     onClick={() => setSelectedTab(tab.id)}
-                    className={`flex items-center space-x-1 sm:space-x-2 px-2 sm:px-4 py-3 text-xs sm:text-sm font-medium transition-colors whitespace-nowrap flex-shrink-0 ${
+                    className={`flex items-center space-x-1 sm:space-x-2 px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm font-medium transition-colors whitespace-nowrap flex-shrink-0 min-w-fit ${
                       selectedTab === tab.id
                         ? 'text-blue-400 border-b-2 border-blue-400 bg-gray-800'
                         : 'text-gray-400 hover:text-gray-300 hover:bg-gray-800'
                     }`}
                   >
-                    <tab.icon className="w-3 h-3 sm:w-4 sm:h-4" />
-                    <span className="hidden xs:inline">{tab.label}</span>
-                    <span className="xs:hidden">{tab.label.split(' ')[0]}</span>
+                    <tab.icon className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
+                    <span className="hidden sm:inline">{tab.label}</span>
+                    <span className="sm:hidden">{tab.label.split(' ')[0]}</span>
                   </button>
                 ))}
               </nav>
@@ -549,7 +555,7 @@ function AppContent() {
                   />
                 )}
                 {selectedTab === 'metrics' && (
-                  <div className="h-full">
+                  <div className="h-full p-2 sm:p-4">
                     <IntelligentMetricsVisualization
                       metricsData={{
                         complexity: scanResults.complexity || 0,
@@ -573,31 +579,37 @@ function AppContent() {
                   </div>
                 )}
                 {selectedTab === 'conflicts' && (
-                  <ConflictsList 
-                    conflicts={scanResults.conflicts}
-                    files={scanResults.files}
-                  />
+                  <div className="h-full p-2 sm:p-4">
+                    <ConflictsList 
+                      conflicts={scanResults.conflicts}
+                      files={scanResults.files}
+                    />
+                  </div>
                 )}
                 {selectedTab === 'files' && (
-                  <EnhancedFilesTab files={scanResults.files} />
+                  <div className="h-full p-2 sm:p-4">
+                    <EnhancedFilesTab files={scanResults.files} />
+                  </div>
                 )}
                 {selectedTab === 'ckg' && (
-                  <CKGPanel 
-                    projectId={currentProject?.id}
-                    projectPath={scanPath}
-                    isVisible={selectedTab === 'ckg'}
-                  />
+                  <div className="h-full p-2 sm:p-4">
+                    <CKGPanel 
+                      projectId={currentProject?.id}
+                      projectPath={scanPath}
+                      isVisible={selectedTab === 'ckg'}
+                    />
+                  </div>
                 )}
               </div>
             </div>
           ) : (
-            <div className="h-full flex items-center justify-center">
-              <div className="text-center">
-                <div className="w-16 h-16 mx-auto mb-4 bg-gray-800 rounded-full flex items-center justify-center">
-                  <Search className="w-8 h-8 text-gray-400" />
+            <div className="h-full flex items-center justify-center p-4">
+              <div className="text-center max-w-md">
+                <div className="w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-3 sm:mb-4 bg-gray-800 rounded-full flex items-center justify-center">
+                  <Search className="w-6 h-6 sm:w-8 sm:h-8 text-gray-400" />
                 </div>
-                <h3 className="text-lg font-medium text-white mb-2">Ready to Analyze</h3>
-                <p className="text-gray-400 mb-4">
+                <h3 className="text-base sm:text-lg font-medium text-white mb-2">Ready to Analyze</h3>
+                <p className="text-xs sm:text-sm text-gray-400 mb-4">
                   Enter a path, upload a file, or browse a directory to start analyzing your code.
                 </p>
                 <div className="flex items-center justify-center space-x-2 text-sm text-gray-500">

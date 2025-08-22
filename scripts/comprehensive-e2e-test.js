@@ -13,9 +13,9 @@ import WebSocket from 'ws';
 
 class ComprehensiveE2ETest {
   constructor() {
-    this.baseUrl = 'http://localhost:3001';
+    this.baseUrl = 'http://localhost:3000';
     this.clientUrl = 'http://localhost:5173';
-    this.wsUrl = 'ws://localhost:3001/ws';
+    this.wsUrl = 'ws://localhost:3000/ws';
     this.testResults = {
       timestamp: new Date().toISOString(),
       totalTests: 0,

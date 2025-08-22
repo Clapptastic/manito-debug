@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { 
   Clock, 
   Play, 
@@ -167,8 +168,8 @@ const ScanQueueDashboard = ({ className = '' }) => {
         )}
       </button>
 
-      {/* Queue Dashboard Modal */}
-      {isOpen && (
+      {/* Scan Queue Dashboard Modal */}
+      {isOpen && createPortal(
         <div className="modal-container z-[99993] p-4 sm:p-6 animate-fade-in" onClick={() => setIsOpen(false)}>
           <div className="modal-content w-full max-w-6xl animate-scale-up" onClick={(e) => e.stopPropagation()}>
             {/* Header */}
@@ -357,7 +358,8 @@ const ScanQueueDashboard = ({ className = '' }) => {
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

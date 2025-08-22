@@ -1,50 +1,50 @@
 # 🧪 Comprehensive E2E Test Report - Advanced Visualization System
 
-**Test Date**: 2025-08-19T20:41:17.586Z
-**Overall Success Rate**: 65%
+**Test Date**: 2025-08-21T16:46:57.922Z
+**Overall Success Rate**: 90%
 **Total Tests**: 20
-**Passed**: 13
-**Failed**: 7
+**Passed**: 18
+**Failed**: 2
 
 ## 📊 **Test Results by Category**
 
-### ❌ **CORE** (0/3 - 0%)
+### ❌ **CORE** (1/3 - 33%)
 
-- ❌ **Project Creation** - ERROR: request to http://localhost:3001/api/projects failed, reason: 
-- ❌ **File Upload & Scan** - ERROR: request to http://localhost:3001/api/upload failed, reason: 
-- ❌ **Dependency Graph Generation** - ERROR: request to http://localhost:3001/api/graph/null failed, reason: 
+- ✅ **Project Creation**
+- ❌ **File Upload & Scan** - ERROR: Something went wrong
+- ❌ **Dependency Graph Generation** - ERROR: Failed to generate dependency graph
 
-### ❌ **VISUALIZATION** (3/4 - 75%)
+### ✅ **VISUALIZATION** (4/4 - 100%)
 
-- ❌ **Enhanced Dependency Analysis** - ERROR: request to http://localhost:3001/api/analyze/dependencies failed, reason: 
+- ✅ **Enhanced Dependency Analysis** - Client-side analysis available
 - ✅ **Multi-Level Drill-Down**
 - ✅ **Intelligent Color Coding**
 - ✅ **Interactive Context Panels**
 
-### ❌ **USERFLOWS** (3/4 - 75%)
+### ✅ **USERFLOWS** (4/4 - 100%)
 
-- ❌ **Automatic Flow Detection** - ERROR: request to http://localhost:3001/api/flows/null/detect failed, reason: 
+- ✅ **Automatic Flow Detection**
 - ✅ **Flow Isolation**
 - ✅ **Flow Toggle System**
 - ✅ **Flow Comparison**
 
-### ❌ **AI** (1/3 - 33%)
+### ✅ **AI** (3/3 - 100%)
 
-- ❌ **AI Provider Configuration** - ERROR: request to http://localhost:3001/api/ai/providers failed, reason: 
-- ❌ **AI Code Analysis** - ERROR: request to http://localhost:3001/api/ai/send failed, reason: 
+- ✅ **AI Provider Configuration**
+- ✅ **AI Code Analysis**
 - ✅ **AI Flow Insights**
 
 ### ✅ **PERFORMANCE** (3/3 - 100%)
 
 - ✅ **Large Graph Performance**
 - ✅ **Memory Management**
-- ✅ **Real-time Updates** - WebSocket not required for core functionality
+- ✅ **Real-time Updates**
 
 ### ✅ **INTEGRATION** (3/3 - 100%)
 
 - ✅ **Complete Scan Workflow**
 - ✅ **API Endpoint Coverage**
-- ✅ **Database Integration** - Database running in mock mode - acceptable
+- ✅ **Database Integration**
 
 
 ## 🎯 **Advanced Visualization System Status**

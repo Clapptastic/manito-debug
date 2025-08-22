@@ -167,8 +167,14 @@ export class CodeScanner {
           const scriptOptions = { ...parseOptions, sourceType: 'script' };
           ast = parse(content, scriptOptions);
         } catch (secondError) {
-          console.warn(`Parse error in ${filePath}:`, parseError.message);
-          return null;
+          try {
+            // Final fallback to module mode
+            const moduleOptions = { ...parseOptions, sourceType: 'module' };
+            ast = parse(content, moduleOptions);
+          } catch (thirdError) {
+            console.warn(`Parse error in ${filePath}:`, parseError.message);
+            return null;
+          }
         }
       }
 

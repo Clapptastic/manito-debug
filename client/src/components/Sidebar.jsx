@@ -146,20 +146,22 @@ function Sidebar({ scanPath, setScanPath, onScan, onUpload, onBrowseDirectory, i
   }
 
   return (
-    <aside className={`${isMinimized ? 'w-16 lg:w-16' : 'w-full lg:w-80'} glass-panel m-2 sm:m-4 lg:mr-0 flex flex-col overflow-visible sidebar-container transition-all duration-300 ease-in-out`}>
+    <aside className={`bg-gray-900/95 backdrop-blur-sm border-r border-gray-700/50 flex flex-col transition-all duration-300 relative z-[1] overflow-hidden ${
+      isMinimized ? 'w-16' : 'w-full lg:w-80'
+    } ${isDragOver ? 'ring-2 ring-primary-500/50' : ''} max-h-screen lg:max-h-none`}>
       {/* Header */}
-      <div className="p-3 sm:p-6 border-b border-gray-700/50">
-        <div className="flex items-center justify-between mb-4">
+      <div className="p-3 sm:p-4 lg:p-6 border-b border-gray-700/50">
+        <div className="flex items-center justify-between mb-3 sm:mb-4">
           {!isMinimized ? (
             <>
-              <h2 className="text-base sm:text-lg font-semibold text-white flex items-center space-x-2">
-                <Zap className="w-4 h-4 sm:w-5 sm:h-5 text-primary-400" />
+              <h2 className="text-sm sm:text-base lg:text-lg font-semibold text-white flex items-center space-x-1 sm:space-x-2">
+                <Zap className="w-3 h-3 sm:w-4 sm:h-4 lg:w-5 lg:h-5 text-primary-400" />
                 <span>Code Scanner</span>
               </h2>
               <HelpTooltip content="Configure scan settings and analysis options">
                 <button 
                   onClick={onOpenSettings}
-                  className="p-1 sm:p-2 rounded-lg hover:bg-gray-700/50 transition-colors focus:ring-2 focus:ring-blue-500/50 focus:outline-none"
+                  className="p-1 sm:p-1.5 lg:p-2 rounded-lg hover:bg-gray-700/50 transition-colors focus:ring-2 focus:ring-blue-500/50 focus:outline-none"
                 >
                   <Settings className="w-3 h-3 sm:w-4 sm:h-4 text-gray-400" />
                 </button>
@@ -167,34 +169,34 @@ function Sidebar({ scanPath, setScanPath, onScan, onUpload, onBrowseDirectory, i
             </>
           ) : (
             <div className="flex items-center justify-center w-full">
-              <Zap className="w-5 h-5 text-primary-400" />
+              <Zap className="w-4 h-4 sm:w-5 sm:h-5 text-primary-400" />
             </div>
           )}
         </div>
         
         {/* Minimize/Expand Button */}
-        <div className="flex justify-center mb-4">
+        <div className="flex justify-center mb-3 sm:mb-4">
           <button
             onClick={() => setIsMinimized(!isMinimized)}
-            className="p-1.5 rounded-lg hover:bg-gray-700/50 transition-colors"
+            className="p-1 sm:p-1.5 rounded-lg hover:bg-gray-700/50 transition-colors"
             title={isMinimized ? "Expand sidebar" : "Minimize sidebar"}
           >
             {isMinimized ? (
-              <ChevronRight className="w-4 h-4 text-gray-400 hover:text-white" />
+              <ChevronRight className="w-3 h-3 sm:w-4 sm:h-4 text-gray-400 hover:text-white" />
             ) : (
-              <ChevronLeft className="w-4 h-4 text-gray-400 hover:text-white" />
+              <ChevronLeft className="w-3 h-3 sm:w-4 sm:h-4 text-gray-400 hover:text-white" />
             )}
           </button>
         </div>
 
         {/* Mode Selector */}
         {!isMinimized && (
-          <div className="mb-4">
+          <div className="mb-3 sm:mb-4">
             <div className="grid grid-cols-3 gap-1 rounded-lg bg-gray-800/50 p-1">
               {isFileSystemAccessSupported() && (
                 <button
                   onClick={() => setInputMode('browse')}
-                  className={`px-1 sm:px-2 py-2 text-xs font-medium rounded-md transition-all flex items-center justify-center space-x-1 ${
+                  className={`px-1 sm:px-2 py-1.5 sm:py-2 text-xs font-medium rounded-md transition-all flex items-center justify-center space-x-1 ${
                     inputMode === 'browse'
                       ? 'bg-primary-600 text-white shadow-sm'
                       : 'text-gray-400 hover:text-gray-300 hover:bg-gray-700/50'
@@ -207,7 +209,7 @@ function Sidebar({ scanPath, setScanPath, onScan, onUpload, onBrowseDirectory, i
               )}
               <button
                 onClick={() => setInputMode('upload')}
-                className={`px-1 sm:px-2 py-2 text-xs font-medium rounded-md transition-all flex items-center justify-center space-x-1 ${
+                className={`px-1 sm:px-2 py-1.5 sm:py-2 text-xs font-medium rounded-md transition-all flex items-center justify-center space-x-1 ${
                   inputMode === 'upload'
                     ? 'bg-primary-600 text-white shadow-sm'
                     : 'text-gray-400 hover:text-gray-300 hover:bg-gray-700/50'
@@ -219,7 +221,7 @@ function Sidebar({ scanPath, setScanPath, onScan, onUpload, onBrowseDirectory, i
               </button>
               <button
                 onClick={() => setInputMode('path')}
-                className={`px-1 sm:px-2 py-2 text-xs font-medium rounded-md transition-all flex items-center justify-center space-x-1 ${
+                className={`px-1 sm:px-2 py-1.5 sm:py-2 text-xs font-medium rounded-md transition-all flex items-center justify-center space-x-1 ${
                   inputMode === 'path'
                     ? 'bg-primary-600 text-white shadow-sm'
                     : 'text-gray-400 hover:text-gray-300 hover:bg-gray-700/50'
@@ -235,11 +237,12 @@ function Sidebar({ scanPath, setScanPath, onScan, onUpload, onBrowseDirectory, i
 
         {/* Input Forms */}
         {!isMinimized && (
-          <>
+          <div className="flex-1 overflow-y-auto overflow-x-hidden">
+            <>
             {inputMode === 'browse' ? (
               /* Browse Mode */
-              <div className="space-y-3">
-                <label className="text-sm font-medium text-gray-300 flex items-center space-x-2">
+              <div className="space-y-2 sm:space-y-3">
+                <label className="text-xs sm:text-sm font-medium text-gray-300 flex items-center space-x-1 sm:space-x-2">
                   <span>Browse Local Directory</span>
                   <HelpTooltip content="Select a local directory using your browser's directory picker" />
                 </label>
@@ -249,55 +252,67 @@ function Sidebar({ scanPath, setScanPath, onScan, onUpload, onBrowseDirectory, i
                     value={projectName}
                     onChange={(e) => setProjectName(e.target.value)}
                     placeholder="Project name..."
-                    className="input-field w-full text-sm focus:ring-2 focus:ring-primary-500/50"
+                    className="input-field w-full text-xs sm:text-sm focus:ring-2 focus:ring-primary-500/50"
                   />
                   <div className="relative">
                     <input
                       type="text"
-                      value={selectedDirectory ? `${selectedDirectory.name} (${selectedDirectory.files.length} files)` : ''}
+                      value={selectedDirectory ? selectedDirectory.name : ''}
                       placeholder="No directory selected..."
                       readOnly
-                      className="input-field w-full pr-12 text-sm focus:ring-2 focus:ring-primary-500/50"
+                      className="input-field w-full pr-12 text-xs sm:text-sm focus:ring-2 focus:ring-primary-500/50"
                     />
-                    <Tooltip content="Browse for directory" position="top">
+                    <Tooltip content="Browse directory" position="top">
                       <button
                         onClick={handleBrowseDirectory}
                         className="absolute right-2 top-1/2 transform -translate-y-1/2 p-1 rounded hover:bg-gray-600/50 transition-colors focus:ring-2 focus:ring-blue-500/50 focus:outline-none"
                       >
-                        <Folder className="w-4 h-4 text-gray-400" />
+                        <Folder className="w-3 h-3 sm:w-4 sm:h-4 text-gray-400" />
                       </button>
                     </Tooltip>
                   </div>
                 </div>
               </div>
             ) : inputMode === 'path' ? (
-              /* Path Input Mode */
-              <div className="space-y-3">
-                <label className="text-sm font-medium text-gray-300 flex items-center space-x-2">
-                  <span>Enter Project Path</span>
-                  <HelpTooltip content="Enter the full path to your project directory" />
+              /* Path Mode */
+              <div className="space-y-2 sm:space-y-3">
+                <label className="text-xs sm:text-sm font-medium text-gray-300 flex items-center space-x-1 sm:space-x-2">
+                  <span>Enter File Path</span>
+                  <HelpTooltip content="Enter the path to your project directory" />
                 </label>
                 <div className="space-y-2">
                   <input
                     type="text"
-                    value={projectName}
-                    onChange={(e) => setProjectName(e.target.value)}
-                    placeholder="Project name..."
-                    className="input-field w-full text-sm focus:ring-2 focus:ring-primary-500/50"
-                  />
-                  <input
-                    type="text"
                     value={scanPath}
                     onChange={(e) => setScanPath(e.target.value)}
-                    placeholder="Enter project path..."
-                    className="input-field w-full text-sm focus:ring-2 focus:ring-primary-500/50"
+                    placeholder="/path/to/your/project"
+                    className="input-field w-full text-xs sm:text-sm focus:ring-2 focus:ring-primary-500/50"
                   />
+                  <div className="flex space-x-2">
+                    <Tooltip content="Select folder" position="top">
+                      <button
+                        onClick={handleFolderSelect}
+                        className="flex-1 flex items-center justify-center space-x-1 px-2 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors text-xs sm:text-sm focus:ring-2 focus:ring-blue-500/50 focus:outline-none"
+                      >
+                        <FolderOpen className="w-3 h-3 sm:w-4 sm:h-4" />
+                        <span>Select</span>
+                      </button>
+                    </Tooltip>
+                    <Tooltip content="Clear path" position="top">
+                      <button
+                        onClick={() => setScanPath('')}
+                        className="px-2 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors text-xs sm:text-sm focus:ring-2 focus:ring-blue-500/50 focus:outline-none"
+                      >
+                        Clear
+                      </button>
+                    </Tooltip>
+                  </div>
                 </div>
               </div>
             ) : (
               /* Upload Mode */
-              <div className="space-y-3">
-                <label className="text-sm font-medium text-gray-300 flex items-center space-x-2">
+              <div className="space-y-2 sm:space-y-3">
+                <label className="text-xs sm:text-sm font-medium text-gray-300 flex items-center space-x-1 sm:space-x-2">
                   <span>Upload Project Archive</span>
                   <HelpTooltip content="Upload a ZIP file containing your project" />
                 </label>
@@ -307,7 +322,7 @@ function Sidebar({ scanPath, setScanPath, onScan, onUpload, onBrowseDirectory, i
                     value={projectName}
                     onChange={(e) => setProjectName(e.target.value)}
                     placeholder="Project name..."
-                    className="input-field w-full text-sm focus:ring-2 focus:ring-primary-500/50"
+                    className="input-field w-full text-xs sm:text-sm focus:ring-2 focus:ring-primary-500/50"
                   />
                   <div className="relative">
                     <input
@@ -315,14 +330,14 @@ function Sidebar({ scanPath, setScanPath, onScan, onUpload, onBrowseDirectory, i
                       value={uploadFile ? uploadFile.name : ''}
                       placeholder="No file selected..."
                       readOnly
-                      className="input-field w-full pr-12 text-sm focus:ring-2 focus:ring-primary-500/50"
+                      className="input-field w-full pr-12 text-xs sm:text-sm focus:ring-2 focus:ring-primary-500/50"
                     />
                     <Tooltip content="Select ZIP file" position="top">
                       <button
                         onClick={handleZipSelect}
                         className="absolute right-2 top-1/2 transform -translate-y-1/2 p-1 rounded hover:bg-gray-600/50 transition-colors focus:ring-2 focus:ring-blue-500/50 focus:outline-none"
                       >
-                        <Archive className="w-4 h-4 text-gray-400" />
+                        <Archive className="w-3 h-3 sm:w-4 sm:h-4 text-gray-400" />
                       </button>
                     </Tooltip>
                   </div>
@@ -331,47 +346,58 @@ function Sidebar({ scanPath, setScanPath, onScan, onUpload, onBrowseDirectory, i
             )}
 
             {/* Scan Button */}
-            <div className="mt-4">
+            <div className="mt-3 sm:mt-4">
               <KeyboardTooltip 
                 content="Start code analysis (Ctrl+Enter)"
                 shortcut="Ctrl+Enter"
               >
                 <button
-                  onClick={inputMode === 'upload' ? onUpload : onScan}
-                  disabled={isScanning || !scanPath}
-                  className={`w-full py-2 px-4 rounded-lg font-medium transition-all flex items-center justify-center space-x-2 ${
+                  onClick={() => {
+                    if (inputMode === 'upload') {
+                      if (uploadFile) {
+                        onUpload(uploadFile, projectName);
+                      } else {
+                        feedback.warning('Please select a file to upload');
+                      }
+                    } else {
+                      onScan();
+                    }
+                  }}
+                  disabled={isScanning || (inputMode === 'upload' ? !uploadFile : !scanPath)}
+                  className={`w-full py-2 px-3 sm:px-4 rounded-lg font-medium transition-all flex items-center justify-center space-x-1 sm:space-x-2 text-xs sm:text-sm ${
                     isScanning
                       ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
-                      : scanPath
+                      : (inputMode === 'upload' ? uploadFile : scanPath)
                       ? 'bg-primary-600 hover:bg-primary-700 text-white shadow-lg hover:shadow-xl transform hover:scale-105'
                       : 'bg-gray-600 text-gray-400 cursor-not-allowed'
                   }`}
                 >
                   {isScanning ? (
                     <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <Loader2 className="w-3 h-3 sm:w-4 sm:h-4 animate-spin" />
                       <span>Analyzing...</span>
                     </>
                   ) : inputMode === 'browse' ? (
                     <>
-                      <Play className="w-4 h-4" />
+                      <Play className="w-3 h-3 sm:w-4 sm:h-4" />
                       <span>Start Analysis</span>
                     </>
                   ) : inputMode === 'upload' ? (
                     <>
-                      <Upload className="w-4 h-4" />
+                      <Upload className="w-3 h-3 sm:w-4 sm:h-4" />
                       <span>Upload & Analyze</span>
                     </>
                   ) : (
                     <>
-                      <Play className="w-4 h-4" />
+                      <Play className="w-3 h-3 sm:w-4 sm:h-4" />
                       <span>Start Analysis</span>
                     </>
                   )}
                 </button>
               </KeyboardTooltip>
             </div>
-          </>
+            </>
+          </div>
         )}
 
         {/* Scan Results Summary */}

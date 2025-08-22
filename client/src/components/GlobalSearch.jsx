@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { Search, X, Clock, FileText, GitBranch, AlertTriangle, TrendingUp, Filter } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 
@@ -171,10 +172,10 @@ const GlobalSearch = ({ onResultSelect, className = '' }) => {
         <kbd className="px-1.5 py-0.5 text-xs bg-gray-700 rounded">⌘K</kbd>
       </button>
 
-      {/* Search Modal */}
-      {isOpen && (
+      {/* Global Search Modal */}
+      {isOpen && createPortal(
         <div className="modal-container z-[99995] p-4 sm:p-6 animate-fade-in" onClick={() => setIsOpen(false)}>
-          <div className="modal-content w-full max-w-2xl animate-scale-up" onClick={(e) => e.stopPropagation()}>
+          <div className="modal-content w-full max-w-4xl animate-scale-up" onClick={(e) => e.stopPropagation()}>
             {/* Search Input */}
             <div className="p-4 border-b border-gray-700">
               <div className="relative">
@@ -291,7 +292,8 @@ const GlobalSearch = ({ onResultSelect, className = '' }) => {
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

@@ -55,8 +55,8 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Grant permissions
-GRANT ALL PRIVILEGES ON TABLE audit_log TO manito_dev;
-GRANT ALL PRIVILEGES ON TABLE vault_backups TO manito_dev;
+GRANT ALL PRIVILEGES ON TABLE audit_log TO postgres;
+GRANT ALL PRIVILEGES ON TABLE vault_backups TO postgres;
 
 -- Create RLS policies for audit_log
 ALTER TABLE audit_log ENABLE ROW LEVEL SECURITY;

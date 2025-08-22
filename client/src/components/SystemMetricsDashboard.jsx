@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { 
   Activity, 
   Server, 
@@ -129,7 +130,7 @@ const SystemMetricsDashboard = ({ className = '' }) => {
       </button>
 
       {/* System Metrics Modal */}
-      {isOpen && (
+      {isOpen && createPortal(
         <div className="modal-container z-[99997] p-4 sm:p-6 animate-fade-in" onClick={() => setIsOpen(false)}>
           <div className="modal-content w-full max-w-6xl animate-scale-up" onClick={(e) => e.stopPropagation()}>
             {/* Header */}
@@ -326,7 +327,8 @@ const SystemMetricsDashboard = ({ className = '' }) => {
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

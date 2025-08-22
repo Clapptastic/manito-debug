@@ -1,31 +1,65 @@
 import { createClient } from '@supabase/supabase-js';
 import crypto from 'crypto';
+import pg from 'pg';
 
 /**
  * Enhanced Vault Service for secure API key storage
  * Uses Supabase Vault for encryption/decryption with advanced security features
+ * Based on Supabase Vault documentation: https://supabase.com/docs/guides/database/vault
  */
 class VaultService {
   constructor() {
     this.supabase = null;
-    this.vaultSecret = process.env.SUPABASE_VAULT_SECRET_KEY;
+    this.vaultSecret = null;
     this.initialized = false;
     this.logger = console;
     this.auditLog = [];
     this.keyRotationSchedule = new Map();
     this.backupInterval = null;
+    this.dbClient = null;
   }
 
   async initialize() {
     try {
+      // Ensure environment variables are loaded
+      this.vaultSecret = process.env.SUPABASE_VAULT_SECRET_KEY;
+      
+      if (!this.vaultSecret) {
+        console.log('🔧 Vault Service: Environment variables not loaded, attempting to reload...');
+        // Try to reload environment variables
+        const dotenv = await import('dotenv');
+        const path = await import('path');
+        const { fileURLToPath } = await import('url');
+        
+        const __filename = fileURLToPath(import.meta.url);
+        const __dirname = path.dirname(__filename);
+        
+        dotenv.config({ path: path.join(__dirname, '..', '..', '.env') });
+        
+        this.vaultSecret = process.env.SUPABASE_VAULT_SECRET_KEY;
+      }
+      
       if (!this.vaultSecret) {
         throw new Error('SUPABASE_VAULT_SECRET_KEY environment variable is required');
       }
+      
+      console.log('✅ Vault Service: Environment variables loaded successfully');
 
+      // Create Supabase client for regular operations
       this.supabase = createClient(
         process.env.SUPABASE_URL || 'http://127.0.0.1:54321',
         process.env.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0'
       );
+
+      // Create direct database connection for vault operations
+      this.dbClient = new pg.Client({
+        host: '127.0.0.1',
+        port: 54325,
+        database: 'postgres',
+        user: 'postgres',
+        password: 'postgres'
+      });
+      await this.dbClient.connect();
 
       // Test vault connection
       await this.testConnection();
@@ -50,6 +84,23 @@ class VaultService {
       
     } catch (error) {
       this.logger.error('Failed to initialize vault service:', error);
+      throw error;
+    }
+  }
+
+  async testConnection() {
+    try {
+      // Test vault access by checking if we can access the existing vault secret
+      const result = await this.dbClient.query('SELECT * FROM vault.decrypted_secrets LIMIT 1');
+
+      if (!result.rows || result.rows.length === 0) {
+        throw new Error('No vault secrets found - vault may not be properly configured');
+      }
+
+      this.logger.info('Vault connection test successful - can access vault secrets');
+      return true;
+    } catch (error) {
+      this.logger.error('Vault connection test failed:', error);
       throw error;
     }
   }
@@ -95,210 +146,42 @@ class VaultService {
         this.logger.warn('Failed to store audit log in database:', dbError);
       }
 
+      this.logger.info(`Audit: ${eventType} - ${message}`);
     } catch (error) {
       this.logger.error('Failed to log audit event:', error);
     }
   }
 
-  startKeyRotationMonitoring() {
-    // Check for key rotation every hour
-    setInterval(async () => {
-      try {
-        await this.checkKeyRotationSchedule();
-      } catch (error) {
-        this.logger.error('Key rotation check failed:', error);
-      }
-    }, 60 * 60 * 1000); // 1 hour
-  }
-
-  startBackupProcedures() {
-    // Create backup every 24 hours
-    this.backupInterval = setInterval(async () => {
-      try {
-        await this.createBackup();
-      } catch (error) {
-        this.logger.error('Backup creation failed:', error);
-      }
-    }, 24 * 60 * 60 * 1000); // 24 hours
-  }
-
-  async checkKeyRotationSchedule() {
+  async healthCheck() {
     try {
-      const now = new Date();
-      const keysToRotate = [];
-
-      for (const [provider, schedule] of this.keyRotationSchedule.entries()) {
-        if (schedule.nextRotation <= now) {
-          keysToRotate.push(provider);
-        }
+      if (!this.initialized) {
+        return {
+          status: 'unhealthy',
+          message: 'Vault service not initialized',
+          timestamp: new Date().toISOString()
+        };
       }
 
-      for (const provider of keysToRotate) {
-        await this.rotateApiKey(provider);
-      }
+      // Test vault access
+      await this.testConnection();
 
-      if (keysToRotate.length > 0) {
-        await this.logAuditEvent('KEY_ROTATION', `Rotated keys for providers: ${keysToRotate.join(', ')}`);
-      }
-    } catch (error) {
-      this.logger.error('Key rotation schedule check failed:', error);
-    }
-  }
-
-  async rotateApiKey(provider, userId = 'default') {
-    try {
-      // Get current key
-      const currentKey = await this.getApiKey(userId, provider);
-      if (!currentKey) {
-        throw new Error(`No existing key found for provider: ${provider}`);
-      }
-
-      // Generate new key (this would typically come from the provider's API)
-      const newKey = await this.generateNewApiKey(provider, currentKey);
-      
-      // Store new key
-      await this.storeApiKey(userId, provider, newKey);
-      
-      // Update rotation schedule
-      this.keyRotationSchedule.set(provider, {
-        lastRotation: new Date(),
-        nextRotation: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000), // 90 days
-        rotationCount: (this.keyRotationSchedule.get(provider)?.rotationCount || 0) + 1
-      });
-
-      await this.logAuditEvent('KEY_ROTATED', `API key rotated for provider: ${provider}`, {
-        provider,
-        userId,
-        rotationCount: this.keyRotationSchedule.get(provider)?.rotationCount
-      });
-
-      this.logger.info(`API key rotated for provider: ${provider}`);
-      return true;
-    } catch (error) {
-      this.logger.error(`Failed to rotate API key for ${provider}:`, error);
-      throw error;
-    }
-  }
-
-  async generateNewApiKey(provider, currentKey) {
-    // This is a placeholder - in production, you would call the provider's API
-    // to generate a new key and invalidate the old one
-    try {
-      // For demonstration, we'll create a mock new key
-      const timestamp = Date.now();
-      const randomBytes = crypto.randomBytes(16).toString('hex');
-      return `${provider}_new_${timestamp}_${randomBytes}`;
-    } catch (error) {
-      throw new Error(`Failed to generate new API key for ${provider}: ${error.message}`);
-    }
-  }
-
-  async createBackup() {
-    try {
-      const backupData = {
+      return {
+        status: 'healthy',
+        message: 'Enhanced vault service is operational',
         timestamp: new Date().toISOString(),
-        apiKeys: await this.getAllApiKeys(),
-        auditLog: this.auditLog.slice(-100), // Last 100 audit entries
-        keyRotationSchedule: Array.from(this.keyRotationSchedule.entries()),
-        metadata: {
-          version: '2.0.0',
-          backupType: 'scheduled'
+        metrics: {
+          rotationScheduleCount: this.keyRotationSchedule.size,
+          auditLogCount: this.auditLog.length,
+          lastBackup: new Date().toISOString()
         }
       };
-
-      // Encrypt backup data
-      const encryptedBackup = await this.encrypt(JSON.stringify(backupData));
-      
-      // Store backup
-      const { error } = await this.supabase
-        .from('vault_backups')
-        .insert({
-          backup_data: encryptedBackup,
-          created_at: new Date().toISOString(),
-          backup_type: 'scheduled'
-        });
-
-      if (error) {
-        throw new Error(`Failed to store backup: ${error.message}`);
-      }
-
-      await this.logAuditEvent('BACKUP_CREATED', 'Scheduled backup created successfully');
-      this.logger.info('Vault backup created successfully');
-      
-      // Clean up old backups (keep last 7 days)
-      await this.cleanupOldBackups();
-      
     } catch (error) {
-      this.logger.error('Backup creation failed:', error);
-      throw error;
-    }
-  }
-
-  async cleanupOldBackups() {
-    try {
-      const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-      
-      const { error } = await this.supabase
-        .from('vault_backups')
-        .delete()
-        .lt('created_at', sevenDaysAgo.toISOString());
-
-      if (error) {
-        this.logger.warn('Failed to cleanup old backups:', error);
-      }
-    } catch (error) {
-      this.logger.warn('Backup cleanup failed:', error);
-    }
-  }
-
-  async restoreFromBackup(backupId) {
-    try {
-      const { data, error } = await this.supabase
-        .from('vault_backups')
-        .select('backup_data')
-        .eq('id', backupId)
-        .single();
-
-      if (error || !data) {
-        throw new Error('Backup not found');
-      }
-
-      const decryptedBackup = await this.decrypt(data.backup_data);
-      const backupData = JSON.parse(decryptedBackup);
-
-      // Restore API keys
-      for (const [provider, key] of Object.entries(backupData.apiKeys)) {
-        if (key) {
-          await this.storeApiKey('default', provider, key);
-        }
-      }
-
-      await this.logAuditEvent('BACKUP_RESTORED', `Backup restored from ID: ${backupId}`);
-      this.logger.info(`Backup restored successfully from ID: ${backupId}`);
-      
-      return true;
-    } catch (error) {
-      this.logger.error('Backup restoration failed:', error);
-      throw error;
-    }
-  }
-
-  async testConnection() {
-    try {
-      // Test vault access by attempting to encrypt/decrypt a test value
-      const testKey = 'test-api-key';
-      const encrypted = await this.encrypt(testKey);
-      const decrypted = await this.decrypt(encrypted);
-      
-      if (decrypted !== testKey) {
-        throw new Error('Vault encryption/decryption test failed');
-      }
-      
-      this.logger.info('Vault connection test successful');
-      return true;
-    } catch (error) {
-      this.logger.error('Vault connection test failed:', error);
-      throw error;
+      return {
+        status: 'unhealthy',
+        message: `Vault service error: ${error.message}`,
+        timestamp: new Date().toISOString(),
+        error: error.message
+      };
     }
   }
 
@@ -308,40 +191,43 @@ class VaultService {
     }
 
     try {
-      // Use Supabase Vault for encryption
-      const { data, error } = await this.supabase.rpc('encrypt', {
-        data: text,
-        secret_key: this.vaultSecret
-      });
+      // Use Supabase Vault's create_secret function for encryption
+      // According to docs: vault.create_secret(secret, name, description)
+      const result = await this.dbClient.query(
+        'SELECT vault.create_secret($1, $2, $3) as secret_id',
+        [text, `encrypted_${Date.now()}`, 'API key encryption']
+      );
 
-      if (error) {
-        throw new Error(`Encryption failed: ${error.message}`);
+      if (!result.rows || !result.rows[0] || !result.rows[0].secret_id) {
+        throw new Error('Failed to create vault secret');
       }
 
-      return data;
+      // Return the secret ID as the encrypted reference
+      return result.rows[0].secret_id;
     } catch (error) {
       this.logger.error('Encryption error:', error);
       throw error;
     }
   }
 
-  async decrypt(encryptedText) {
+  async decrypt(secretId) {
     if (!this.initialized) {
       throw new Error('Vault service not initialized');
     }
 
     try {
-      // Use Supabase Vault for decryption
-      const { data, error } = await this.supabase.rpc('decrypt', {
-        data: encryptedText,
-        secret_key: this.vaultSecret
-      });
+      // Use Supabase Vault's decrypted_secrets view for decryption
+      // According to docs: SELECT decrypted_secret FROM vault.decrypted_secrets WHERE id = $1
+      const result = await this.dbClient.query(
+        'SELECT decrypted_secret FROM vault.decrypted_secrets WHERE id = $1',
+        [secretId]
+      );
 
-      if (error) {
-        throw new Error(`Decryption failed: ${error.message}`);
+      if (!result.rows || result.rows.length === 0) {
+        throw new Error('Secret not found');
       }
 
-      return data;
+      return result.rows[0].decrypted_secret;
     } catch (error) {
       this.logger.error('Decryption error:', error);
       throw error;
@@ -354,7 +240,18 @@ class VaultService {
     }
 
     try {
-      const encryptedKey = await this.encrypt(apiKey);
+      // Create a secret in the vault for this API key using direct DB connection
+      // According to docs: vault.create_secret(secret, name, description)
+      const createResult = await this.dbClient.query(
+        'SELECT vault.create_secret($1, $2, $3) as secret_id',
+        [apiKey, `${provider}_api_key_${userId}`, `API key for ${provider} provider`]
+      );
+
+      if (!createResult.rows || !createResult.rows[0] || !createResult.rows[0].secret_id) {
+        throw new Error('Failed to create vault secret');
+      }
+
+      const secretId = createResult.rows[0].secret_id;
       
       // Set up key rotation schedule if not exists
       if (!this.keyRotationSchedule.has(provider)) {
@@ -365,13 +262,13 @@ class VaultService {
         });
       }
       
-      // Store encrypted key in database
+      // Store secret reference in database
       const { data, error } = await this.supabase
         .from('api_keys')
         .upsert({
           user_id: userId || 'default',
           provider: provider,
-          encrypted_key: encryptedKey,
+          encrypted_key: secretId, // Store the secret ID instead of encrypted text
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
           rotation_schedule: JSON.stringify(this.keyRotationSchedule.get(provider))
@@ -386,7 +283,8 @@ class VaultService {
       await this.logAuditEvent('API_KEY_STORED', `API key stored for provider: ${provider}`, {
         provider,
         userId,
-        hasRotationSchedule: true
+        hasRotationSchedule: true,
+        secretId: secretId
       });
 
       this.logger.info(`API key stored for provider: ${provider}`);
@@ -403,7 +301,7 @@ class VaultService {
     }
 
     try {
-      // Retrieve encrypted key from database
+      // Retrieve secret ID from database
       const { data, error } = await this.supabase
         .from('api_keys')
         .select('encrypted_key')
@@ -415,16 +313,27 @@ class VaultService {
         return null;
       }
 
-      // Decrypt the key
-      const decryptedKey = await this.decrypt(data.encrypted_key);
+      // Retrieve the decrypted secret from vault using direct DB connection
+      const secretResult = await this.dbClient.query(
+        'SELECT decrypted_secret FROM vault.decrypted_secrets WHERE id = $1',
+        [data.encrypted_key]
+      );
+
+      if (!secretResult.rows || secretResult.rows.length === 0) {
+        this.logger.error('Failed to retrieve secret from vault: Secret not found');
+        return null;
+      }
+
+      const secretData = { decrypted_secret: secretResult.rows[0].decrypted_secret };
       
       // Log access for audit
       await this.logAuditEvent('API_KEY_ACCESSED', `API key accessed for provider: ${provider}`, {
         provider,
-        userId
+        userId,
+        secretId: data.encrypted_key
       });
       
-      return decryptedKey;
+      return secretData.decrypted_secret;
     } catch (error) {
       this.logger.error('Failed to retrieve API key:', error);
       return null;
@@ -437,36 +346,42 @@ class VaultService {
     }
 
     try {
-      // Retrieve all encrypted keys for user
       const { data, error } = await this.supabase
         .from('api_keys')
-        .select('provider, encrypted_key, created_at, updated_at')
+        .select('provider, encrypted_key, created_at, updated_at, rotation_schedule')
         .eq('user_id', userId || 'default');
 
       if (error) {
         throw new Error(`Failed to retrieve API keys: ${error.message}`);
       }
 
-      // Decrypt all keys
-      const decryptedKeys = {};
+      const apiKeys = {};
+      
       for (const key of data) {
         try {
-          decryptedKeys[key.provider] = await this.decrypt(key.encrypted_key);
-        } catch (decryptError) {
-          this.logger.warn(`Failed to decrypt key for ${key.provider}:`, decryptError);
-          decryptedKeys[key.provider] = null;
+          // Retrieve the decrypted secret from vault
+          const secretResult = await this.dbClient.query(
+            'SELECT decrypted_secret FROM vault.decrypted_secrets WHERE id = $1',
+            [key.encrypted_key]
+          );
+
+          if (secretResult.rows && secretResult.rows.length > 0) {
+            apiKeys[key.provider] = {
+              key: secretResult.rows[0].decrypted_secret,
+              created_at: key.created_at,
+              updated_at: key.updated_at,
+              rotation_schedule: key.rotation_schedule ? JSON.parse(key.rotation_schedule) : null
+            };
+          }
+        } catch (secretError) {
+          this.logger.warn(`Failed to decrypt key for provider ${key.provider}:`, secretError);
         }
       }
 
-      await this.logAuditEvent('ALL_API_KEYS_ACCESSED', 'All API keys accessed', {
-        userId,
-        keyCount: Object.keys(decryptedKeys).length
-      });
-
-      return decryptedKeys;
+      return apiKeys;
     } catch (error) {
       this.logger.error('Failed to retrieve all API keys:', error);
-      return {};
+      throw error;
     }
   }
 
@@ -476,28 +391,299 @@ class VaultService {
     }
 
     try {
-      const { error } = await this.supabase
+      // Get the secret ID first
+      const { data, error } = await this.supabase
+        .from('api_keys')
+        .select('encrypted_key')
+        .eq('user_id', userId || 'default')
+        .eq('provider', provider)
+        .single();
+
+      if (error || !data) {
+        throw new Error('API key not found');
+      }
+
+      // Delete from database
+      const { error: deleteError } = await this.supabase
         .from('api_keys')
         .delete()
         .eq('user_id', userId || 'default')
         .eq('provider', provider);
 
-      if (error) {
-        throw new Error(`Failed to delete API key: ${error.message}`);
+      if (deleteError) {
+        throw new Error(`Failed to delete API key: ${deleteError.message}`);
       }
 
-      // Remove from rotation schedule
-      this.keyRotationSchedule.delete(provider);
+      // Note: We don't delete from vault as it maintains audit trail
+      // The secret will remain in vault but won't be accessible through our API
 
       await this.logAuditEvent('API_KEY_DELETED', `API key deleted for provider: ${provider}`, {
         provider,
-        userId
+        userId,
+        secretId: data.encrypted_key
       });
 
       this.logger.info(`API key deleted for provider: ${provider}`);
       return true;
     } catch (error) {
       this.logger.error('Failed to delete API key:', error);
+      throw error;
+    }
+  }
+
+  async rotateApiKey(userId, provider) {
+    if (!this.initialized) {
+      throw new Error('Vault service not initialized');
+    }
+
+    try {
+      // Get current key
+      const currentKey = await this.getApiKey(userId, provider);
+      if (!currentKey) {
+        throw new Error('API key not found for rotation');
+      }
+
+      // Generate new key (in real implementation, this would call the provider's API)
+      const newKey = `rotated_${currentKey}_${Date.now()}`;
+
+      // Store new key
+      await this.storeApiKey(userId, provider, newKey);
+
+      // Update rotation schedule
+      const schedule = this.keyRotationSchedule.get(provider) || {};
+      schedule.lastRotation = new Date();
+      schedule.nextRotation = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000);
+      schedule.rotationCount = (schedule.rotationCount || 0) + 1;
+      this.keyRotationSchedule.set(provider, schedule);
+
+      await this.logAuditEvent('API_KEY_ROTATED', `API key rotated for provider: ${provider}`, {
+        provider,
+        userId,
+        rotationCount: schedule.rotationCount
+      });
+
+      this.logger.info(`API key rotated for provider: ${provider}`);
+      return true;
+    } catch (error) {
+      this.logger.error('Failed to rotate API key:', error);
+      throw error;
+    }
+  }
+
+  async getRotationSchedule(provider) {
+    if (!this.initialized) {
+      throw new Error('Vault service not initialized');
+    }
+
+    return this.keyRotationSchedule.get(provider) || null;
+  }
+
+  async setRotationSchedule(provider, schedule) {
+    if (!this.initialized) {
+      throw new Error('Vault service not initialized');
+    }
+
+    this.keyRotationSchedule.set(provider, {
+      ...this.keyRotationSchedule.get(provider),
+      ...schedule
+    });
+
+    await this.logAuditEvent('ROTATION_SCHEDULE_UPDATED', `Rotation schedule updated for provider: ${provider}`, {
+      provider,
+      schedule
+    });
+
+    return true;
+  }
+
+  async getAuditLog(limit = 100, offset = 0) {
+    if (!this.initialized) {
+      throw new Error('Vault service not initialized');
+    }
+
+    try {
+      const { data, error } = await this.supabase
+        .from('audit_log')
+        .select('*')
+        .order('timestamp', { ascending: false })
+        .range(offset, offset + limit - 1);
+
+      if (error) {
+        throw new Error(`Failed to retrieve audit log: ${error.message}`);
+      }
+
+      return data || [];
+    } catch (error) {
+      this.logger.error('Failed to retrieve audit log:', error);
+      // Return local audit log as fallback
+      return this.auditLog.slice(offset, offset + limit);
+    }
+  }
+
+  async createBackup() {
+    if (!this.initialized) {
+      throw new Error('Vault service not initialized');
+    }
+
+    try {
+      const backupData = {
+        timestamp: new Date().toISOString(),
+        rotationSchedules: Object.fromEntries(this.keyRotationSchedule),
+        auditLogCount: this.auditLog.length,
+        version: '2.0.0'
+      };
+
+      // Encrypt backup data
+      const encryptedBackup = await this.encrypt(JSON.stringify(backupData));
+
+      // Store backup
+      const { data, error } = await this.supabase
+        .from('vault_backups')
+        .insert({
+          backup_data: encryptedBackup,
+          backup_type: 'manual',
+          metadata: JSON.stringify({ created_by: 'system' })
+        });
+
+      if (error) {
+        throw new Error(`Failed to create backup: ${error.message}`);
+      }
+
+      await this.logAuditEvent('BACKUP_CREATED', 'Vault backup created successfully', {
+        backupId: data[0]?.id,
+        backupType: 'manual'
+      });
+
+      this.logger.info('Vault backup created successfully');
+      return data[0];
+    } catch (error) {
+      this.logger.error('Failed to create backup:', error);
+      throw error;
+    }
+  }
+
+  async restoreBackup(backupId) {
+    if (!this.initialized) {
+      throw new Error('Vault service not initialized');
+    }
+
+    try {
+      // Retrieve backup
+      const { data, error } = await this.supabase
+        .from('vault_backups')
+        .select('backup_data')
+        .eq('id', backupId)
+        .single();
+
+      if (error || !data) {
+        throw new Error('Backup not found');
+      }
+
+      // Decrypt backup data
+      const decryptedBackup = await this.decrypt(data.backup_data);
+      const backupData = JSON.parse(decryptedBackup);
+
+      // Restore rotation schedules
+      this.keyRotationSchedule.clear();
+      for (const [provider, schedule] of Object.entries(backupData.rotationSchedules)) {
+        this.keyRotationSchedule.set(provider, schedule);
+      }
+
+      await this.logAuditEvent('BACKUP_RESTORED', 'Vault backup restored successfully', {
+        backupId,
+        backupTimestamp: backupData.timestamp
+      });
+
+      this.logger.info('Vault backup restored successfully');
+      return true;
+    } catch (error) {
+      this.logger.error('Failed to restore backup:', error);
+      throw error;
+    }
+  }
+
+  startKeyRotationMonitoring() {
+    // Check for keys that need rotation every hour
+    setInterval(async () => {
+      try {
+        const now = new Date();
+        for (const [provider, schedule] of this.keyRotationSchedule.entries()) {
+          if (schedule.nextRotation && new Date(schedule.nextRotation) <= now) {
+            this.logger.info(`Key rotation due for provider: ${provider}`);
+            // In a real implementation, this would trigger rotation
+          }
+        }
+      } catch (error) {
+        this.logger.error('Key rotation monitoring error:', error);
+      }
+    }, 60 * 60 * 1000); // 1 hour
+  }
+
+  startBackupProcedures() {
+    // Create daily backups
+    this.backupInterval = setInterval(async () => {
+      try {
+        await this.createBackup();
+      } catch (error) {
+        this.logger.error('Scheduled backup failed:', error);
+      }
+    }, 24 * 60 * 60 * 1000); // 24 hours
+  }
+
+  async shutdown() {
+    try {
+      if (this.backupInterval) {
+        clearInterval(this.backupInterval);
+      }
+      
+      if (this.dbClient) {
+        await this.dbClient.end();
+      }
+
+      await this.logAuditEvent('VAULT_SHUTDOWN', 'Vault service shutdown');
+      this.logger.info('Vault service shutdown complete');
+    } catch (error) {
+      this.logger.error('Error during vault shutdown:', error);
+    }
+  }
+
+  // Additional methods for API compatibility
+  isInitialized() {
+    return this.initialized;
+  }
+
+  async getKeyRotationSchedule() {
+    if (!this.initialized) {
+      throw new Error('Vault service not initialized');
+    }
+    return Array.from(this.keyRotationSchedule.entries()).map(([provider, schedule]) => ({
+      provider,
+      lastRotation: schedule.lastRotation,
+      nextRotation: schedule.nextRotation,
+      rotationCount: schedule.rotationCount
+    }));
+  }
+
+  async setKeyRotationSchedule(provider, daysUntilRotation = 90) {
+    if (!this.initialized) {
+      throw new Error('Vault service not initialized');
+    }
+
+    try {
+      this.keyRotationSchedule.set(provider, {
+        lastRotation: new Date(),
+        nextRotation: new Date(Date.now() + daysUntilRotation * 24 * 60 * 60 * 1000),
+        rotationCount: 0
+      });
+
+      await this.logAuditEvent('ROTATION_SCHEDULE_SET', `Rotation schedule set for provider: ${provider}`, {
+        provider,
+        daysUntilRotation
+      });
+
+      return true;
+    } catch (error) {
+      this.logger.error('Failed to set key rotation schedule:', error);
       throw error;
     }
   }
@@ -532,100 +718,41 @@ class VaultService {
     }
   }
 
-  async getAuditLog(limit = 100, offset = 0) {
-    try {
-      const { data, error } = await this.supabase
-        .from('audit_log')
-        .select('*')
-        .order('timestamp', { ascending: false })
-        .range(offset, offset + limit - 1);
+  async restoreFromBackup(backupId) {
+    if (!this.initialized) {
+      throw new Error('Vault service not initialized');
+    }
 
-      if (error) {
-        throw new Error(`Failed to retrieve audit log: ${error.message}`);
+    try {
+      // Retrieve backup
+      const { data, error } = await this.supabase
+        .from('vault_backups')
+        .select('backup_data')
+        .eq('id', backupId)
+        .single();
+
+      if (error || !data) {
+        throw new Error('Backup not found');
       }
 
-      return data || [];
-    } catch (error) {
-      this.logger.error('Failed to retrieve audit log:', error);
-      return this.auditLog.slice(-limit);
-    }
-  }
+      // Decrypt backup data
+      const decryptedBackup = await this.decrypt(data.backup_data);
+      const backupData = JSON.parse(decryptedBackup);
 
-  async getKeyRotationSchedule() {
-    return Array.from(this.keyRotationSchedule.entries()).map(([provider, schedule]) => ({
-      provider,
-      lastRotation: schedule.lastRotation,
-      nextRotation: schedule.nextRotation,
-      rotationCount: schedule.rotationCount
-    }));
-  }
+      // Restore API keys
+      for (const [provider, key] of Object.entries(backupData.apiKeys)) {
+        if (key) {
+          await this.storeApiKey('default', provider, key);
+        }
+      }
 
-  async setKeyRotationSchedule(provider, daysUntilRotation = 90) {
-    try {
-      this.keyRotationSchedule.set(provider, {
-        lastRotation: new Date(),
-        nextRotation: new Date(Date.now() + daysUntilRotation * 24 * 60 * 60 * 1000),
-        rotationCount: 0
-      });
-
-      await this.logAuditEvent('ROTATION_SCHEDULE_SET', `Rotation schedule set for provider: ${provider}`, {
-        provider,
-        daysUntilRotation
-      });
-
+      await this.logAuditEvent('BACKUP_RESTORED', `Backup restored from ID: ${backupId}`);
+      this.logger.info(`Backup restored successfully from ID: ${backupId}`);
+      
       return true;
     } catch (error) {
-      this.logger.error('Failed to set key rotation schedule:', error);
+      this.logger.error('Backup restoration failed:', error);
       throw error;
-    }
-  }
-
-  isInitialized() {
-    return this.initialized;
-  }
-
-  async healthCheck() {
-    try {
-      if (!this.initialized) {
-        return {
-          status: 'error',
-          message: 'Vault service not initialized'
-        };
-      }
-
-      await this.testConnection();
-      
-      const rotationSchedule = await this.getKeyRotationSchedule();
-      const auditLogCount = this.auditLog.length;
-      
-      return {
-        status: 'healthy',
-        message: 'Enhanced vault service is operational',
-        metrics: {
-          rotationScheduleCount: rotationSchedule.length,
-          auditLogCount,
-          lastBackup: new Date().toISOString()
-        }
-      };
-    } catch (error) {
-      return {
-        status: 'error',
-        message: `Vault service health check failed: ${error.message}`
-      };
-    }
-  }
-
-  // Cleanup method for graceful shutdown
-  async cleanup() {
-    try {
-      if (this.backupInterval) {
-        clearInterval(this.backupInterval);
-      }
-      
-      await this.logAuditEvent('VAULT_SHUTDOWN', 'Vault service shutting down');
-      this.logger.info('Vault service cleanup completed');
-    } catch (error) {
-      this.logger.error('Vault service cleanup failed:', error);
     }
   }
 }

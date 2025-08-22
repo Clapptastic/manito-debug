@@ -18,6 +18,7 @@
     @apply fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center;
     min-height: 100vh;
     min-height: 100dvh; /* Dynamic viewport height for mobile */
+    /* Base z-index removed - let individual modals set their own */
   }
   
   .modal-content {
@@ -25,12 +26,22 @@
     max-height: 85vh;
     max-height: 85dvh; /* Dynamic viewport height for mobile */
     margin: auto;
+    position: relative;
+    /* z-index removed - let individual modals set their own */
   }
+  
+  /* Specific modal z-index overrides */
+  .modal-container.z-\[99999\] { z-index: 99999 !important; }
+  .modal-container.z-\[99997\] { z-index: 99997 !important; }
+  .modal-container.z-\[99996\] { z-index: 99996 !important; }
+  .modal-container.z-\[99995\] { z-index: 99995 !important; }
+  .modal-container.z-\[99994\] { z-index: 99994 !important; }
+  .modal-container.z-\[99993\] { z-index: 99993 !important; }
   
   /* Ensure sidebar stays behind modals */
   .sidebar-container {
     @apply relative;
-    z-index: -1;
+    z-index: 1;
     isolation: isolate;
   }
   
@@ -93,6 +104,16 @@
   @apply bg-gray-500;
 }
 
+/* Hide scrollbar for mobile */
+.scrollbar-hide {
+  -ms-overflow-style: none;  /* Internet Explorer 10+ */
+  scrollbar-width: none;  /* Firefox */
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;  /* Safari and Chrome */
+}
+
 /* D3 graph styles */
 .node {
   cursor: pointer;
@@ -145,7 +166,7 @@
 /* Global tooltip styles to ensure visibility */
 .tooltip-portal {
   position: fixed !important;
-  z-index: 50 !important;
+  z-index: 10 !important;
   pointer-events: none !important;
 }
 

@@ -16,7 +16,8 @@ import {
   Minimize2,
   RotateCcw,
   Zap,
-  Star
+  Star,
+  AlertCircle
 } from 'lucide-react'
 import { useSettings } from '../contexts/SettingsContext'
 import { useUserFeedback } from '../utils/userFeedback'
@@ -78,12 +79,14 @@ function AIPanel({ scanResults, onClose }) {
   }
 
   const suggestedQuestions = [
-    "What are the main architectural patterns in my codebase?",
-    "How can I improve the code quality?",
-    "What are the potential security issues?",
-    "Which files have the highest complexity?",
-    "How can I optimize the dependency structure?",
-    "What are the best refactoring opportunities?"
+    "Analyze my codebase architecture and identify potential improvements",
+    "What security vulnerabilities should I be aware of?",
+    "How can I improve the performance of my code?",
+    "What are the main technical debt issues in my project?",
+    "Analyze the code quality and suggest refactoring opportunities",
+    "What testing gaps exist in my codebase?",
+    "How maintainable is my current code structure?",
+    "What are the best practices I should implement?"
   ]
 
   const scrollToBottom = () => {
@@ -102,7 +105,16 @@ function AIPanel({ scanResults, onClose }) {
   }, [scanResults])
 
   const generateInitialInsights = async () => {
-    if (!scanResults) return
+    if (!scanResults || !scanResults.files || scanResults.files.length === 0) {
+      setMessages(prev => [...prev, {
+        id: Date.now(),
+        type: 'ai',
+        content: `⚠️ **No Scan Data Available**\n\nI don't see any scan results to analyze. Please run a code scan first to get comprehensive insights about your codebase.\n\n**To get started:**\n1. Use the sidebar to scan your code\n2. Wait for the scan to complete\n3. Ask me to analyze the results`,
+        timestamp: new Date(),
+        isWarning: true
+      }]);
+      return;
+    }
 
     setIsLoading(true)
     
@@ -114,21 +126,29 @@ function AIPanel({ scanResults, onClose }) {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          scanData: scanResults,
-          analysisType: 'initial_insights'
+          path: scanResults.rootPath || '/path/to/codebase',
+          options: {
+            patterns: ['**/*.{js,jsx,ts,tsx}'],
+            excludePatterns: ['node_modules/**', 'dist/**', 'build/**']
+          }
         })
       });
 
       if (response.ok) {
         const result = await response.json();
-        if (result.success && result.insights) {
+        if (result.success && result.data) {
+          const analysisData = result.data;
+          const insights = formatComprehensiveAnalysis(analysisData, 'Initial codebase analysis');
+          
           setMessages(prev => [...prev, {
             id: Date.now(),
             type: 'ai',
-            content: result.insights,
+            content: insights,
             timestamp: new Date(),
             isInsight: true,
-            isRealData: true
+            isRealData: true,
+            isComprehensiveAnalysis: true,
+            analysisData: analysisData
           }]);
         } else {
           // Fallback to local analysis if backend fails
@@ -143,31 +163,57 @@ function AIPanel({ scanResults, onClose }) {
           }]);
         }
       } else {
+        // Check if it's a configuration error
+        const errorData = await response.json();
+        if (errorData.error?.includes('Provider') || errorData.error?.includes('API key')) {
+          setMessages(prev => [...prev, {
+            id: Date.now(),
+            type: 'ai',
+            content: `⚠️ **AI Configuration Required**\n\nI can't provide comprehensive analysis because no AI provider is configured.\n\n**To enable AI analysis:**\n1. Click the AI Settings button (⚙️) in the header\n2. Add your OpenAI API key\n3. Test the connection\n4. Ask me to analyze your code again\n\n**Current Scan Results:**\n- Files: ${scanResults.files.length}\n- Lines: ${scanResults.metrics?.linesOfCode || 'Unknown'}\n- Dependencies: ${scanResults.dependencies?.length || 0}`,
+            timestamp: new Date(),
+            isWarning: true,
+            isConfigError: true
+          }]);
+        } else {
+          // Fallback to local analysis
+          const insights = generateCodeInsights(scanResults);
+          setMessages(prev => [...prev, {
+            id: Date.now(),
+            type: 'ai',
+            content: `⚠️ **Backend AI Analysis Unavailable**: Using local analysis.\n\n${insights}`,
+            timestamp: new Date(),
+            isInsight: true,
+            isFallback: true
+          }]);
+        }
+      }
+    } catch (error) {
+      console.error('AI analysis failed:', error);
+      
+      // Check if it's a configuration error
+      if (error.message?.includes('Provider') || error.message?.includes('API key')) {
+        setMessages(prev => [...prev, {
+          id: Date.now(),
+          type: 'ai',
+          content: `⚠️ **AI Configuration Required**\n\nI can't provide comprehensive analysis because no AI provider is configured.\n\n**To enable AI analysis:**\n1. Click the AI Settings button (⚙️) in the header\n2. Add your OpenAI API key\n3. Test the connection\n4. Ask me to analyze your code again\n\n**Current Scan Results:**\n- Files: ${scanResults.files.length}\n- Lines: ${scanResults.metrics?.linesOfCode || 'Unknown'}\n- Dependencies: ${scanResults.dependencies?.length || 0}`,
+          timestamp: new Date(),
+          isWarning: true,
+          isConfigError: true
+        }]);
+      } else {
         // Fallback to local analysis
         const insights = generateCodeInsights(scanResults);
         setMessages(prev => [...prev, {
           id: Date.now(),
           type: 'ai',
-          content: `⚠️ **Backend AI Analysis Unavailable**: Using local analysis.\n\n${insights}`,
+          content: `⚠️ **AI Analysis Failed**: Using local analysis.\n\n${insights}\n\n**Error:** ${error.message}`,
           timestamp: new Date(),
           isInsight: true,
           isFallback: true
         }]);
       }
-    } catch (error) {
-      console.error('AI analysis failed:', error);
-      // Fallback to local analysis
-      const insights = generateCodeInsights(scanResults);
-      setMessages(prev => [...prev, {
-        id: Date.now(),
-        type: 'ai',
-        content: `⚠️ **AI Analysis Error**: ${error.message}\n\nUsing local analysis:\n\n${insights}`,
-        timestamp: new Date(),
-        isInsight: true,
-        isError: true
-      }]);
     } finally {
-      setIsLoading(false);
+      setIsLoading(false)
     }
   }
 
@@ -251,32 +297,85 @@ function AIPanel({ scanResults, onClose }) {
 
     try {
       const serverUrl = dynamicPortConfig.getServerUrl();
-      const response = await fetch(`${serverUrl}/api/ai/send`, {
+      
+      // Check if we have scan results for comprehensive analysis
+      const hasScanData = scanResults && scanResults.files && scanResults.files.length > 0;
+      
+      let response;
+      let result;
+      
+      if (hasScanData && inputMessage.toLowerCase().includes('analyze') || 
+          inputMessage.toLowerCase().includes('insights') || 
+          inputMessage.toLowerCase().includes('architecture') ||
+          inputMessage.toLowerCase().includes('security') ||
+          inputMessage.toLowerCase().includes('performance')) {
+        
+        // Use comprehensive AI analysis for analysis requests
+        response = await fetch(`${serverUrl}/api/ai/analyze`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            path: scanResults.rootPath || '/path/to/codebase',
+            options: {
+              patterns: ['**/*.{js,jsx,ts,tsx}'],
+              excludePatterns: ['node_modules/**', 'dist/**', 'build/**']
+            }
+          })
+        });
+        
+        if (response.ok) {
+          result = await response.json();
+          if (result.success && result.data) {
+            // Format comprehensive analysis results
+            const analysisData = result.data;
+            const insights = formatComprehensiveAnalysis(analysisData, inputMessage);
+            
+            const aiResponse = {
+              id: Date.now() + 1,
+              type: 'ai',
+              content: insights,
+              timestamp: new Date(),
+              isRealData: true,
+              isComprehensiveAnalysis: true,
+              analysisData: analysisData
+            };
+            setMessages(prev => [...prev, aiResponse]);
+            return;
+          }
+        }
+      }
+      
+      // Fallback to regular AI message endpoint
+      response = await fetch(`${serverUrl}/api/ai/send`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
           message: inputMessage,
-          scanData: scanResults,
           provider: selectedProvider,
           context: {
             files: scanResults?.files?.length || 0,
             conflicts: scanResults?.conflicts?.length || 0,
-            totalLines: scanResults?.metrics?.linesOfCode || 0
+            totalLines: scanResults?.metrics?.linesOfCode || 0,
+            scanResults: hasScanData ? scanResults : null
           }
         })
       });
 
       if (response.ok) {
-        const result = await response.json();
-        if (result.success && result.response) {
+        result = await response.json();
+        if (result.success && result.data) {
           const aiResponse = {
             id: Date.now() + 1,
             type: 'ai',
-            content: result.response,
+            content: result.data.response,
             timestamp: new Date(),
-            isRealData: true
+            isRealData: true,
+            confidence: result.data.confidence,
+            suggestions: result.data.suggestions
           };
           setMessages(prev => [...prev, aiResponse]);
         } else {
@@ -290,26 +389,127 @@ function AIPanel({ scanResults, onClose }) {
       console.error('Error getting AI response:', error)
       
       // Determine specific error type and provide appropriate feedback
-      if (error.message?.includes('No API key configured')) {
-        feedback.aiNoApiKey()
-      } else if (error.message?.includes('Invalid API key')) {
-        feedback.aiInvalidApiKey()
+      let errorMessage = error.message;
+      let isConfigError = false;
+      
+      if (error.message?.includes('Provider') && error.message?.includes('not available')) {
+        errorMessage = `No AI provider configured. Please configure an AI provider in settings.`;
+        isConfigError = true;
+      } else if (error.message?.includes('API key')) {
+        errorMessage = `AI API key not configured. Please add your API key in settings.`;
+        isConfigError = true;
       } else if (error.message?.includes('Rate limit')) {
-        feedback.aiRateLimited()
+        errorMessage = `AI rate limit exceeded. Please try again later.`;
       } else {
-        feedback.aiFailed(error.message || 'Unknown error occurred')
+        errorMessage = `AI service error: ${error.message}`;
       }
       
       setMessages(prev => [...prev, {
         id: Date.now() + 1,
         type: 'ai',
-        content: `Sorry, I encountered an error while processing your request: ${error.message}\n\nPlease check your AI configuration in settings or try again later.`,
+        content: `${isConfigError ? '⚠️ **AI Configuration Required**\n\n' : '❌ **AI Error**\n\n'}${errorMessage}\n\n${isConfigError ? '**To fix this:**\n1. Click the AI Settings button (⚙️) in the header\n2. Add your OpenAI API key\n3. Test the connection\n4. Try your question again' : ''}`,
         timestamp: new Date(),
-        isError: true
+        isError: true,
+        isConfigError: isConfigError
       }])
     } finally {
       setIsLoading(false)
     }
+  }
+
+  // Format comprehensive analysis results
+  const formatComprehensiveAnalysis = (analysisData, userQuestion) => {
+    const { metadata, qualityMetrics, architecture, security, performance, patterns, technicalDebt, maintainability, testability, documentation, recommendations } = analysisData;
+    
+    let response = `## 🤖 **Comprehensive AI Analysis**\n\n`;
+    response += `**Question:** ${userQuestion}\n\n`;
+    
+    // Project Overview
+    if (metadata) {
+      response += `### 📊 **Project Overview**\n`;
+      response += `- **Files Analyzed:** ${metadata.totalFiles}\n`;
+      response += `- **Total Lines:** ${metadata.totalLines.toLocaleString()}\n`;
+      response += `- **Project Type:** ${metadata.projectType || 'Unknown'}\n`;
+      response += `- **Framework:** ${metadata.framework || 'None detected'}\n\n`;
+    }
+    
+    // Quality Metrics
+    if (qualityMetrics && qualityMetrics.complexity) {
+      response += `### 🎯 **Code Quality**\n`;
+      response += `- **Average Complexity:** ${qualityMetrics.complexity.average || 'N/A'}\n`;
+      response += `- **Maintainability Score:** ${maintainability?.score || 'N/A'}/100\n`;
+      response += `- **Testability Score:** ${testability?.score || 'N/A'}/100\n`;
+      response += `- **Documentation Coverage:** ${documentation?.coverage || 'N/A'}%\n\n`;
+    }
+    
+    // Architecture Insights
+    if (architecture && architecture.patterns) {
+      response += `### 🏗️ **Architecture Analysis**\n`;
+      if (architecture.patterns.length > 0) {
+        response += `**Detected Patterns:**\n`;
+        architecture.patterns.forEach(pattern => {
+          response += `- ${pattern}\n`;
+        });
+      } else {
+        response += `- No specific architectural patterns detected\n`;
+      }
+      
+      if (architecture.recommendations && architecture.recommendations.length > 0) {
+        response += `\n**Architecture Recommendations:**\n`;
+        architecture.recommendations.slice(0, 3).forEach(rec => {
+          response += `- ${rec}\n`;
+        });
+      }
+      response += `\n`;
+    }
+    
+    // Security Assessment
+    if (security) {
+      response += `### 🔒 **Security Assessment**\n`;
+      response += `- **Overall Risk:** ${security.risks?.overall || 'Unknown'}\n`;
+      response += `- **Vulnerabilities Found:** ${security.vulnerabilities?.length || 0}\n`;
+      response += `- **Compliance Status:** ${security.compliance?.compliant ? '✅ Compliant' : '❌ Issues Found'}\n\n`;
+    }
+    
+    // Performance Analysis
+    if (performance) {
+      response += `### ⚡ **Performance Analysis**\n`;
+      response += `- **Average Load Time:** ${performance.metrics?.averageLoadTime || 'N/A'}s\n`;
+      response += `- **Memory Usage:** ${performance.metrics?.memoryUsage || 'N/A'}\n`;
+      if (performance.recommendations && performance.recommendations.length > 0) {
+        response += `\n**Performance Recommendations:**\n`;
+        performance.recommendations.slice(0, 3).forEach(rec => {
+          response += `- ${rec}\n`;
+        });
+      }
+      response += `\n`;
+    }
+    
+    // Technical Debt
+    if (technicalDebt) {
+      response += `### 💳 **Technical Debt**\n`;
+      response += `- **Total Debt:** ${technicalDebt.total || 0} points\n`;
+      if (technicalDebt.recommendations && technicalDebt.recommendations.length > 0) {
+        response += `\n**Debt Reduction Recommendations:**\n`;
+        technicalDebt.recommendations.slice(0, 3).forEach(rec => {
+          response += `- ${rec}\n`;
+        });
+      }
+      response += `\n`;
+    }
+    
+    // Top Recommendations
+    if (recommendations && recommendations.priority && recommendations.priority.length > 0) {
+      response += `### 🎯 **Top Recommendations**\n`;
+      recommendations.priority.slice(0, 5).forEach(rec => {
+        response += `- **${rec.type}**: ${rec.description || 'Improvement needed'}\n`;
+      });
+      response += `\n`;
+    }
+    
+    response += `---\n*Analysis generated by AI based on your codebase scan results.*`;
+    
+    return response;
   }
 
   // Note: All AI API calls are now handled by the backend
@@ -373,7 +573,10 @@ function AIPanel({ scanResults, onClose }) {
 
   const MessageBubble = ({ message }) => {
     const isAI = message.type === 'ai'
-    const isError = message.type === 'error'
+    const isError = message.isError
+    const isWarning = message.isWarning
+    const isConfigError = message.isConfigError
+    const isComprehensiveAnalysis = message.isComprehensiveAnalysis
     
     return (
       <div className={`flex ${isAI ? 'justify-start' : 'justify-end'} mb-4`}>
@@ -381,10 +584,25 @@ function AIPanel({ scanResults, onClose }) {
           {/* Avatar */}
           {isAI && (
             <div className="flex items-center space-x-2 mb-1">
-              <div className="w-6 h-6 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 flex items-center justify-center">
-                <Brain className="w-3 h-3 text-white" />
+              <div className={`w-6 h-6 rounded-full flex items-center justify-center ${
+                isConfigError ? 'bg-yellow-500' : 
+                isError ? 'bg-red-500' : 
+                isComprehensiveAnalysis ? 'bg-gradient-to-r from-purple-500 to-blue-500' :
+                'bg-gradient-to-r from-purple-500 to-pink-500'
+              }`}>
+                {isConfigError ? (
+                  <AlertCircle className="w-3 h-3 text-white" />
+                ) : isError ? (
+                  <AlertCircle className="w-3 h-3 text-white" />
+                ) : (
+                  <Brain className="w-3 h-3 text-white" />
+                )}
               </div>
-              <span className="text-xs text-gray-400">AI Assistant</span>
+              <span className="text-xs text-gray-400">
+                {isConfigError ? 'Configuration Required' : 
+                 isError ? 'AI Error' : 
+                 isComprehensiveAnalysis ? 'AI Analysis' : 'AI Assistant'}
+              </span>
               {message.confidence && (
                 <div className="flex items-center space-x-1">
                   <Star className="w-3 h-3 text-yellow-400" />
@@ -396,16 +614,29 @@ function AIPanel({ scanResults, onClose }) {
           
           {/* Message Content */}
           <div className={`p-3 rounded-lg ${
-            isError 
-              ? 'bg-red-500/10 border border-red-500/30 text-red-200'
-              : isAI 
-                ? 'bg-gray-800/70 text-gray-100' 
-                : 'bg-primary-600 text-white'
-          } ${message.isInsight ? 'border border-purple-500/30' : ''}`}>
-            {message.isInsight && (
+            isConfigError 
+              ? 'bg-yellow-500/10 border border-yellow-500/30 text-yellow-200'
+              : isError 
+                ? 'bg-red-500/10 border border-red-500/30 text-red-200'
+                : isWarning
+                  ? 'bg-orange-500/10 border border-orange-500/30 text-orange-200'
+                  : isAI 
+                    ? 'bg-gray-800/70 text-gray-100' 
+                    : 'bg-primary-600 text-white'
+          } ${message.isInsight ? 'border border-purple-500/30' : ''} ${
+            isComprehensiveAnalysis ? 'border-2 border-purple-500/50' : ''
+          }`}>
+            {message.isInsight && !isComprehensiveAnalysis && (
               <div className="flex items-center space-x-1 mb-2">
                 <Sparkles className="w-4 h-4 text-purple-400" />
                 <span className="text-xs text-purple-400 font-medium">AI Insights</span>
+              </div>
+            )}
+            
+            {isComprehensiveAnalysis && (
+              <div className="flex items-center space-x-1 mb-2">
+                <Brain className="w-4 h-4 text-purple-400" />
+                <span className="text-xs text-purple-400 font-medium">Comprehensive Analysis</span>
               </div>
             )}
             
@@ -437,37 +668,32 @@ function AIPanel({ scanResults, onClose }) {
             
             {/* Suggestions */}
             {message.suggestions && message.suggestions.length > 0 && (
-              <div className="mt-3 pt-3 border-t border-gray-600/50">
-                <div className="flex items-center space-x-1 mb-2">
-                  <Lightbulb className="w-4 h-4 text-yellow-400" />
-                  <span className="text-xs text-yellow-400 font-medium">Suggestions</span>
-                </div>
-                <ul className="space-y-1 text-sm">
+              <div className="mt-3 pt-3 border-t border-gray-600/30">
+                <div className="text-xs text-gray-400 mb-2">Suggestions:</div>
+                <div className="space-y-1">
                   {message.suggestions.map((suggestion, index) => (
-                    <li key={index} className="flex items-start space-x-2">
-                      <CheckCircle className="w-3 h-3 text-green-400 mt-0.5 flex-shrink-0" />
-                      <span>{suggestion}</span>
-                    </li>
+                    <div key={index} className="text-xs text-gray-300 bg-gray-700/50 p-2 rounded">
+                      {suggestion}
+                    </div>
                   ))}
-                </ul>
+                </div>
               </div>
             )}
-            {message.isError && (
-              <div className="flex items-center space-x-1 px-2 py-1 bg-red-500/20 border border-red-500/30 rounded text-xs">
-                <AlertTriangle className="w-3 h-3 text-red-400" />
-                <span className="text-red-200">Error</span>
-              </div>
-            )}
-            {message.isFallback && (
-              <div className="flex items-center space-x-1 px-2 py-1 bg-yellow-500/20 border border-yellow-500/30 rounded text-xs">
-                <AlertTriangle className="w-3 h-3 text-yellow-400" />
-                <span className="text-yellow-200">Fallback</span>
-              </div>
-            )}
-            {message.isRealData && (
-              <div className="flex items-center space-x-1 px-2 py-1 bg-green-500/20 border border-green-500/30 rounded text-xs">
-                <CheckCircle className="w-3 h-3 text-green-400" />
-                <span className="text-green-200">Real Data</span>
+            
+            {/* Configuration Error Actions */}
+            {isConfigError && (
+              <div className="mt-3 pt-3 border-t border-yellow-500/30">
+                <div className="text-xs text-yellow-400 mb-2">Quick Actions:</div>
+                <button 
+                  onClick={() => {
+                    // Trigger AI settings modal
+                    const event = new CustomEvent('openAISettings');
+                    window.dispatchEvent(event);
+                  }}
+                  className="text-xs bg-yellow-600 hover:bg-yellow-700 text-white px-3 py-1 rounded transition-colors"
+                >
+                  Open AI Settings
+                </button>
               </div>
             )}
           </div>
