@@ -327,23 +327,14 @@ class EnhancedDatabaseService extends EventEmitter {
   // Supabase query wrapper
   async querySupabase(text, params = [], options = {}) {
     try {
-      // For basic compatibility, use Supabase's SQL execution
-      // Note: This is a simplified implementation - you might need custom logic
-      // depending on your specific SQL needs
-      const result = await this.supabase.client
-        .from('query_results') // You'll need to set up a function or use RPC
-        .select('*')
-        .limit(1000);
-
-      if (result.error) {
-        throw result.error;
-      }
-
+      // Use Supabase client methods for better compatibility
+      const result = await this.supabase.query(text, params);
+      
       // Return in PostgreSQL result format for compatibility
       return {
-        rows: result.data || [],
-        rowCount: result.data ? result.data.length : 0,
-        command: 'SELECT'
+        rows: result.rows || [],
+        rowCount: result.rowCount || 0,
+        command: this.extractSQLCommand(text)
       };
     } catch (error) {
       this.logger.error('Supabase query failed', { 
@@ -352,9 +343,23 @@ class EnhancedDatabaseService extends EventEmitter {
       });
       
       // Fallback to mock mode if Supabase fails
+      this.logger.warn('Falling back to mock mode due to Supabase error');
       this.supabaseConnected = false;
       return this.mockQuery(text, params);
     }
+  }
+
+  // Helper method to extract SQL command type
+  extractSQLCommand(sql) {
+    const trimmed = sql.trim().toUpperCase();
+    if (trimmed.startsWith('SELECT')) return 'SELECT';
+    if (trimmed.startsWith('INSERT')) return 'INSERT';
+    if (trimmed.startsWith('UPDATE')) return 'UPDATE';
+    if (trimmed.startsWith('DELETE')) return 'DELETE';
+    if (trimmed.startsWith('CREATE')) return 'CREATE';
+    if (trimmed.startsWith('ALTER')) return 'ALTER';
+    if (trimmed.startsWith('DROP')) return 'DROP';
+    return 'QUERY';
   }
 
   // Enhanced transaction method with retry logic

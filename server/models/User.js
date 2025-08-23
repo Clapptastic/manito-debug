@@ -71,20 +71,26 @@ class User {
 
   // Find user by ID
   static async findById(id) {
-    const users = await enhancedDb.select('users', { where: 'id = $1 AND is_active = true', whereParams: [id] });
-    if (users.length === 0) return null;
+    const result = await enhancedDb.select('users', { 
+      where: 'id = $1 AND is_active = true', 
+      whereParams: [id] 
+    });
+    if (result.length === 0) return null;
     
-    return new User(users[0]);
+    return new User(result[0]);
   }
 
   // Find user by email
   static async findByEmail(email) {
     // Normalize email for consistent lookup
     const normalizedEmail = email ? email.toLowerCase() : '';
-    const users = await enhancedDb.select('users', { where: 'email = $1 AND is_active = true', whereParams: [normalizedEmail] });
-    if (users.length === 0) return null;
+    const result = await enhancedDb.select('users', { 
+      where: 'email = $1 AND is_active = true', 
+      whereParams: [normalizedEmail] 
+    });
+    if (result.length === 0) return null;
     
-    return new User(users[0]);
+    return new User(result[0]);
   }
 
   // Get all users (admin only)
