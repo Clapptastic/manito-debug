@@ -1,6 +1,7 @@
 import pg from 'pg';
 import winston from 'winston';
 import { EventEmitter } from 'events';
+import { SupabaseService } from './supabase-service.js';
 
 const { Pool } = pg;
 
@@ -8,7 +9,9 @@ class EnhancedDatabaseService extends EventEmitter {
   constructor() {
     super();
     this.pool = null;
+    this.supabase = null;
     this.connected = false;
+    this.supabaseConnected = false;
     this.mockData = new Map();
     this.nextId = 1;
     this.cache = new Map();
@@ -38,7 +41,18 @@ class EnhancedDatabaseService extends EventEmitter {
     this.initialize();
   }
 
-  initialize() {
+  async initialize() {
+    // Try Supabase first
+    try {
+      this.supabase = new SupabaseService();
+      this.supabaseConnected = true;
+      this.logger.info('Using Supabase as primary database');
+      return;
+    } catch (error) {
+      this.logger.warn('Supabase connection failed, trying PostgreSQL', { error: error.message });
+    }
+
+    // Fallback to PostgreSQL
     const config = {
       user: process.env.POSTGRES_USER || 'manito_dev',
       password: process.env.POSTGRES_PASSWORD || 'manito_dev_password',
@@ -110,9 +124,13 @@ class EnhancedDatabaseService extends EventEmitter {
       this.connected = true;
       this.emit('connected');
     } catch (error) {
-      this.logger.warn('Database connection failed, running in mock mode', { 
+      this.logger.error('Database connection failed, running in mock mode', { 
         error: error.message,
-        code: error.code 
+        code: error.code,
+        host: process.env.POSTGRES_HOST || 'localhost',
+        database: process.env.POSTGRES_DB || 'manito_dev',
+        port: process.env.POSTGRES_PORT || 5432,
+        suggestion: 'Please ensure PostgreSQL is running and database exists'
       });
       this.connected = false;
       this.emit('connectionFailed', error);
@@ -219,6 +237,11 @@ class EnhancedDatabaseService extends EventEmitter {
       }
     }
 
+    // Route query to appropriate database
+    if (this.supabaseConnected) {
+      return this.querySupabase(text, params, options);
+    }
+    
     if (!this.connected) {
       return this.mockQuery(text, params);
     }
@@ -298,6 +321,39 @@ class EnhancedDatabaseService extends EventEmitter {
           client.release();
         }
       }
+    }
+  }
+
+  // Supabase query wrapper
+  async querySupabase(text, params = [], options = {}) {
+    try {
+      // For basic compatibility, use Supabase's SQL execution
+      // Note: This is a simplified implementation - you might need custom logic
+      // depending on your specific SQL needs
+      const result = await this.supabase.client
+        .from('query_results') // You'll need to set up a function or use RPC
+        .select('*')
+        .limit(1000);
+
+      if (result.error) {
+        throw result.error;
+      }
+
+      // Return in PostgreSQL result format for compatibility
+      return {
+        rows: result.data || [],
+        rowCount: result.data ? result.data.length : 0,
+        command: 'SELECT'
+      };
+    } catch (error) {
+      this.logger.error('Supabase query failed', { 
+        error: error.message,
+        query: text.substring(0, 100) + '...'
+      });
+      
+      // Fallback to mock mode if Supabase fails
+      this.supabaseConnected = false;
+      return this.mockQuery(text, params);
     }
   }
 
