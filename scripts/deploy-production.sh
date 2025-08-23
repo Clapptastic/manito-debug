@@ -120,13 +120,22 @@ print_success "Client build completed"
 
 # Step 8: Security Check
 print_status "Step 8: Running security checks..."
-# Check for common security issues
-if grep -r "password.*=.*['\"]" server/ --exclude-dir=node_modules; then
-    print_warning "Found potential hardcoded passwords"
+# Use secure tools for security scanning instead of grep
+npm audit --audit-level=high
+if [ $? -ne 0 ]; then
+    print_error "Security vulnerabilities found in dependencies"
+    exit 1
 fi
 
-if grep -r "api.*key.*=.*['\"]" server/ --exclude-dir=node_modules; then
-    print_warning "Found potential hardcoded API keys"
+# Check for environment variable validation
+if [ -z "$JWT_SECRET" ]; then
+    print_error "JWT_SECRET environment variable not set"
+    exit 1
+fi
+
+if [ -z "$SUPABASE_URL" ] && [ -z "$DATABASE_URL" ]; then
+    print_error "Database configuration not set (SUPABASE_URL or DATABASE_URL required)"
+    exit 1
 fi
 
 print_success "Security checks completed"

@@ -40,10 +40,10 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v4.1.1
 
     - name: Setup Node.js
-      uses: actions/setup-node@v4
+      uses: actions/setup-node@b39b52d1213e96004bfcb1c61a8a6fa8ab84f3e8 # v4.0.1
       with:
         node-version: ${{ env.NODE_VERSION }}
         cache: 'npm'
@@ -65,7 +65,7 @@ jobs:
       run: npm run coverage || echo "Coverage not configured"
 
     - name: Upload test results
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4.3.1
       if: always()
       with:
         name: test-results
@@ -80,10 +80,10 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v4.1.1
 
     - name: Setup Node.js
-      uses: actions/setup-node@v4
+      uses: actions/setup-node@b39b52d1213e96004bfcb1c61a8a6fa8ab84f3e8 # v4.0.1
       with:
         node-version: ${{ env.NODE_VERSION }}
         cache: 'npm'
@@ -98,7 +98,7 @@ jobs:
       run: npm run build:server
 
     - name: Upload build artifacts
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4.3.1
       with:
         name: build-artifacts
         path: |
@@ -113,20 +113,20 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v4.1.1
 
     - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3
+      uses: docker/setup-buildx-action@f95db51fddba0c2d1ec667646a06c2ce06100226 # v3.0.0
 
     - name: Login to Docker Hub
-      uses: docker/login-action@v3
+      uses: docker/login-action@343f7c4344506bcbf9b4de18042ae17996df046d # v3.0.0
       with:
         username: ${{ secrets.DOCKER_USERNAME }}
         password: ${{ secrets.DOCKER_PASSWORD }}
 
     - name: Extract metadata
       id: meta
-      uses: docker/metadata-action@v5
+      uses: docker/metadata-action@8e5442c4ef9f78752691e2d8f8d19755c6f78e81 # v5.5.1
       with:
         images: manitodebug/manito-debug
         tags: |
@@ -136,7 +136,7 @@ jobs:
           type=raw,value=latest,enable={{is_default_branch}}
 
     - name: Build and push Docker image
-      uses: docker/build-push-action@v5
+      uses: docker/build-push-action@2cdde995de11925a030ce8070c3d77a52ffcf1c0 # v5.3.0
       with:
         context: .
         file: ./Dockerfile.prod
@@ -153,13 +153,13 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v4.1.1
 
     - name: Run security audit
       run: npm audit --audit-level=moderate
 
     - name: Run CodeQL Analysis
-      uses: github/codeql-action/analyze@v3
+      uses: github/codeql-action/analyze@1b1aada464948af03b950897e5eb522f92603cc2 # v3.24.9
       with:
         languages: javascript
 
@@ -172,7 +172,7 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v4.1.1
 
     - name: Deploy to production
       run: |
@@ -197,10 +197,10 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v4.1.1
 
     - name: Setup Node.js
-      uses: actions/setup-node@v4
+      uses: actions/setup-node@b39b52d1213e96004bfcb1c61a8a6fa8ab84f3e8 # v4.0.1
       with:
         node-version: ${{ env.NODE_VERSION }}
         cache: 'npm'
