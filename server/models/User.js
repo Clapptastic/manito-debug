@@ -182,6 +182,11 @@ class User {
 
   // Generate JWT token
   generateToken() {
+    const jwtSecret = process.env.JWT_SECRET;
+    if (!jwtSecret) {
+      throw new Error('JWT_SECRET environment variable is required for token generation');
+    }
+
     const payload = {
       id: this.id,
       email: this.email,
@@ -190,7 +195,21 @@ class User {
       exp: Math.floor(Date.now() / 1000) + (7 * 24 * 60 * 60) // 7 days
     };
 
-    return jwt.sign(payload, process.env.JWT_SECRET || 'fallback-secret');
+    return jwt.sign(payload, jwtSecret);
+  }
+
+  // Verify JWT token
+  static verifyToken(token) {
+    const jwtSecret = process.env.JWT_SECRET;
+    if (!jwtSecret) {
+      throw new Error('JWT_SECRET environment variable is required for token verification');
+    }
+
+    try {
+      return jwt.verify(token, jwtSecret);
+    } catch (error) {
+      throw new Error('Invalid or expired token');
+    }
   }
 
   // Create user session

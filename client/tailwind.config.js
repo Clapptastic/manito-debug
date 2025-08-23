@@ -4,6 +4,12 @@ export default {
     "./index.html",
     "./src/**/*.{js,ts,jsx,tsx}",
   ],
+  // Exclude upload directories to prevent conflicts
+  exclude: [
+    "../server/uploads/**/*",
+    "./server/uploads/**/*",
+    "**/uploads/**/*"
+  ],
   theme: {
     screens: {
       'xs': '475px',
@@ -102,5 +108,5 @@ export default {
       },
     },
   },
-  plugins: [],
+  plugins: [require('tailwindcss-animate')],
 }
