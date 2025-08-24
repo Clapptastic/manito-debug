@@ -64,71 +64,152 @@ class Scan {
 
   // Find scans by project ID
   static async findByProjectId(projectId, limit = 10) {
-    const scans = await enhancedDb.select('scans', {
-      where: 'project_id = $1',
-      whereParams: [projectId],
-      orderBy: 'started_at DESC',
-      limit: limit
-    });
+    try {
+      const scans = await enhancedDb.select('scans', {
+        where: 'project_id = $1',
+        whereParams: [projectId],
+        orderBy: 'started_at DESC',
+        limit: limit
+      });
 
-    return scans.map(scan => {
-      // Parse JSON fields only if they are strings
-      if (scan.scan_options && typeof scan.scan_options === 'string') {
-        try {
-          scan.scan_options = JSON.parse(scan.scan_options);
-        } catch (e) {
-          // Keep original value if parsing fails
+      return scans.map(scan => {
+        // Parse JSON fields only if they are strings
+        if (scan.scan_options && typeof scan.scan_options === 'string') {
+          try {
+            scan.scan_options = JSON.parse(scan.scan_options);
+          } catch (e) {
+            // Keep original value if parsing fails
+          }
         }
-      }
-      if (scan.results && typeof scan.results === 'string') {
-        try {
-          scan.results = JSON.parse(scan.results);
-        } catch (e) {
-          // Keep original value if parsing fails
+        if (scan.results && typeof scan.results === 'string') {
+          try {
+            scan.results = JSON.parse(scan.results);
+          } catch (e) {
+            // Keep original value if parsing fails
+          }
         }
+        return new Scan(scan);
+      });
+    } catch (error) {
+      // Fallback: try with created_at instead of started_at
+      if (error.message.includes('started_at')) {
+        const scans = await enhancedDb.select('scans', {
+          where: 'project_id = $1',
+          whereParams: [projectId],
+          orderBy: 'created_at DESC',
+          limit: limit
+        });
+
+        return scans.map(scan => {
+          // Map created_at to started_at for compatibility
+          scan.started_at = scan.created_at;
+          
+          // Parse JSON fields only if they are strings
+          if (scan.scan_options && typeof scan.scan_options === 'string') {
+            try {
+              scan.scan_options = JSON.parse(scan.scan_options);
+            } catch (e) {
+              // Keep original value if parsing fails
+            }
+          }
+          if (scan.results && typeof scan.results === 'string') {
+            try {
+              scan.results = JSON.parse(scan.results);
+            } catch (e) {
+              // Keep original value if parsing fails
+            }
+          }
+          return new Scan(scan);
+        });
       }
-      return new Scan(scan);
-    });
+      throw error;
+    }
   }
 
   // Get recent scans across all projects
   static async findRecent(limit = 20) {
-    const result = await enhancedDb.query(`
-      SELECT 
-        s.*,
-        p.name as project_name,
-        p.path as project_path
-      FROM scans s
-      JOIN projects p ON p.id = s.project_id
-      ORDER BY s.started_at DESC
-      LIMIT $1
-    `, [limit]);
+    try {
+      const result = await enhancedDb.query(`
+        SELECT 
+          s.*,
+          p.name as project_name,
+          p.path as project_path
+        FROM scans s
+        JOIN projects p ON p.id = s.project_id
+        ORDER BY s.started_at DESC
+        LIMIT $1
+      `, [limit]);
 
-    return result.rows.map(row => {
-      // Parse JSON fields only if they are strings
-      if (row.scan_options && typeof row.scan_options === 'string') {
-        try {
-          row.scan_options = JSON.parse(row.scan_options);
-        } catch (e) {
-          // Keep original value if parsing fails
+      return result.rows.map(row => {
+        // Parse JSON fields only if they are strings
+        if (row.scan_options && typeof row.scan_options === 'string') {
+          try {
+            row.scan_options = JSON.parse(row.scan_options);
+          } catch (e) {
+            // Keep original value if parsing fails
+          }
         }
+        if (row.results && typeof row.results === 'string') {
+          try {
+            row.results = JSON.parse(row.results);
+          } catch (e) {
+            // Keep original value if parsing fails
+          }
+        }
+        
+        return {
+          scan: new Scan(row),
+          project: {
+            name: row.project_name,
+            path: row.project_path
+          }
+        };
+      });
+    } catch (error) {
+      // Fallback: try with created_at instead of started_at
+      if (error.message.includes('started_at')) {
+        const result = await enhancedDb.query(`
+          SELECT 
+            s.*,
+            p.name as project_name,
+            p.path as project_path
+          FROM scans s
+          JOIN projects p ON p.id = s.project_id
+          ORDER BY s.created_at DESC
+          LIMIT $1
+        `, [limit]);
+
+        return result.rows.map(row => {
+          // Map created_at to started_at for compatibility
+          row.started_at = row.created_at;
+          
+          // Parse JSON fields only if they are strings
+          if (row.scan_options && typeof row.scan_options === 'string') {
+            try {
+              row.scan_options = JSON.parse(row.scan_options);
+            } catch (e) {
+              // Keep original value if parsing fails
+            }
+          }
+          if (row.results && typeof row.results === 'string') {
+            try {
+              row.results = JSON.parse(row.results);
+            } catch (e) {
+              // Keep original value if parsing fails
+            }
+          }
+          
+          return {
+            scan: new Scan(row),
+            project: {
+              name: row.project_name,
+              path: row.project_path
+            }
+          };
+        });
       }
-      if (row.results && typeof row.results === 'string') {
-        try {
-          row.results = JSON.parse(row.results);
-        } catch (e) {
-          // Keep original value if parsing fails
-        }
-      }
-      
-      return {
-        scan: new Scan(row),
-        project: {
-          name: row.project_name,
-          path: row.project_path
-        }
-      };
-    });
+      throw error;
+    }
   }
 
   // Update scan progress/status

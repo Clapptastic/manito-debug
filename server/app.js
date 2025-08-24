@@ -1642,6 +1642,140 @@ app.get('/api/projects/:id/scans', async (req, res) => {
   }
 });
 
+// Get latest scan for a project
+app.get('/api/projects/:id/latest-scan', async (req, res) => {
+  try {
+    const projectId = req.params.id;
+    const scans = await Scan.findByProjectId(projectId, 1);
+    
+    if (scans.length > 0) {
+      const latestScan = scans[0];
+      res.json({ 
+        success: true, 
+        data: {
+          scan: latestScan,
+          projectId: projectId,
+          hasData: true
+        }
+      });
+    } else {
+      res.json({ 
+        success: true, 
+        data: {
+          scan: null,
+          projectId: projectId,
+          hasData: false,
+          message: 'No scan data found for this project'
+        }
+      });
+    }
+  } catch (error) {
+    logger.error('Failed to get latest scan for project', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Failed to get latest scan', 
+      message: error.message 
+    });
+  }
+});
+
+// Get analysis data for a project
+app.get('/api/projects/:id/analysis', async (req, res) => {
+  try {
+    const projectId = req.params.id;
+    const scans = await Scan.findByProjectId(projectId, 5); // Get last 5 scans
+    
+    if (scans.length === 0) {
+      return res.json({ 
+        success: true, 
+        data: {
+          projectId: projectId,
+          hasData: false,
+          message: 'No analysis data found for this project'
+        }
+      });
+    }
+
+    // Aggregate analysis data from recent scans
+    const analysis = {
+      projectId: projectId,
+      totalScans: scans.length,
+      latestScan: scans[0],
+      scanHistory: scans,
+      metrics: {
+        totalFilesScanned: scans.reduce((sum, scan) => sum + (scan.files_scanned || 0), 0),
+        totalLinesOfCode: scans.reduce((sum, scan) => sum + (scan.lines_of_code || 0), 0),
+        totalConflicts: scans.reduce((sum, scan) => sum + (scan.conflicts_found || 0), 0),
+        averageScanTime: scans.length > 0 ? scans.reduce((sum, scan) => {
+          if (scan.started_at && scan.completed_at) {
+            return sum + (new Date(scan.completed_at) - new Date(scan.started_at));
+          }
+          return sum;
+        }, 0) / scans.length : 0
+      },
+      trends: {
+        filesScanned: scans.map(scan => ({
+          date: scan.started_at,
+          count: scan.files_scanned || 0
+        })),
+        conflictsFound: scans.map(scan => ({
+          date: scan.started_at,
+          count: scan.conflicts_found || 0
+        }))
+      }
+    };
+
+    res.json({ success: true, data: analysis });
+  } catch (error) {
+    logger.error('Failed to get analysis data for project', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Failed to get analysis data', 
+      message: error.message 
+    });
+  }
+});
+
+// Get complete project data including scan results
+app.get('/api/projects/:id/scan-results', async (req, res) => {
+  try {
+    const projectId = req.params.id;
+    const project = await Project.findById(projectId);
+    
+    if (!project) {
+      return res.status(404).json({ 
+        success: false, 
+        error: 'Project not found' 
+      });
+    }
+
+    const scans = await Scan.findByProjectId(projectId, 10);
+    const latestScan = scans.length > 0 ? scans[0] : null;
+
+    const projectData = {
+      project: project,
+      scans: scans,
+      latestScan: latestScan,
+      hasScanData: scans.length > 0,
+      summary: {
+        totalScans: scans.length,
+        lastScanDate: latestScan ? latestScan.started_at : null,
+        totalFilesScanned: scans.reduce((sum, scan) => sum + (scan.files_scanned || 0), 0),
+        totalConflicts: scans.reduce((sum, scan) => sum + (scan.conflicts_found || 0), 0)
+      }
+    };
+
+    res.json({ success: true, data: projectData });
+  } catch (error) {
+    logger.error('Failed to get project scan results', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Failed to get project scan results', 
+      message: error.message 
+    });
+  }
+});
+
 // Graph endpoint - updated to use real scan data
 app.get('/api/graph/:scanId?', async (req, res) => {
   try {

@@ -51,6 +51,7 @@ function AppContent() {
   const [currentProject, setCurrentProject] = useState(null)
   const [scanProgress, setScanProgress] = useState({ stage: 'idle', progress: 0, files: 0, details: '' })
   const [scanStage, setScanStage] = useState('idle')
+  const [isLoadingProject, setIsLoadingProject] = useState(false)
   const { toast } = useToast()
   const feedback = useUserFeedback()
 
@@ -485,11 +486,66 @@ function AppContent() {
         <Header 
           onToggleAI={() => setShowAIPanel(!showAIPanel)}
           onOpenSettings={() => setShowSettings(true)}
-          onProjectSelect={(project) => {
+          onProjectSelect={async (project) => {
             console.log('App: Project selected:', project);
             setCurrentProject(project);
             setScanPath(project.path);
-            toast.success(`Switched to project: ${project.name}`);
+            setIsLoadingProject(true);
+            
+            // Load existing scan results for this project
+            try {
+              const response = await fetch(`/api/projects/${project.id}/latest-scan`);
+              if (response.ok) {
+                const data = await response.json();
+                if (data.success && data.data.hasData && data.data.scan) {
+                  // Try to load scan results from the latest scan
+                  try {
+                    const scanResultsResponse = await fetch(`/api/scans/${data.data.scan.id}`);
+                    if (scanResultsResponse.ok) {
+                      const scanData = await scanResultsResponse.json();
+                      if (scanData.success && scanData.data) {
+                        setScanResults(scanData.data);
+                        toast.success(`Loaded project: ${project.name} with existing scan data`);
+                      } else {
+                        // If scan results not found, check if scan has results in its data
+                        if (data.data.scan.results && Object.keys(data.data.scan.results).length > 0) {
+                          setScanResults(data.data.scan.results);
+                          toast.success(`Loaded project: ${project.name} with scan data`);
+                        } else {
+                          toast.info(`Switched to project: ${project.name} (no scan data available)`);
+                        }
+                      }
+                    } else {
+                      // If scan results endpoint fails, check if scan has results in its data
+                      if (data.data.scan.results && Object.keys(data.data.scan.results).length > 0) {
+                        setScanResults(data.data.scan.results);
+                        toast.success(`Loaded project: ${project.name} with scan data`);
+                      } else {
+                        toast.info(`Switched to project: ${project.name} (no scan data available)`);
+                      }
+                    }
+                  } catch (scanError) {
+                    console.warn('Failed to load scan results, checking scan data:', scanError);
+                    // If scan results endpoint fails, check if scan has results in its data
+                    if (data.data.scan.results && Object.keys(data.data.scan.results).length > 0) {
+                      setScanResults(data.data.scan.results);
+                      toast.success(`Loaded project: ${project.name} with scan data`);
+                    } else {
+                      toast.info(`Switched to project: ${project.name} (no scan data available)`);
+                    }
+                  }
+                } else {
+                  toast.info(`Switched to project: ${project.name} (no scan data available)`);
+                }
+              } else {
+                toast.error(`Failed to load project data: ${response.statusText}`);
+              }
+            } catch (error) {
+              console.error('Failed to load project data:', error);
+              toast.error('Failed to load project data');
+            } finally {
+              setIsLoadingProject(false);
+            }
           }}
           onSearchSelect={(result) => {
             if (result.entity_type === 'project') {
@@ -522,6 +578,13 @@ function AppContent() {
                 stage={scanProgress.stage}
                 files={scanProgress.files}
               />
+            </div>
+          ) : isLoadingProject ? (
+            <div className="h-full flex items-center justify-center p-4">
+              <div className="text-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-400 mx-auto mb-4"></div>
+                <p className="text-gray-400">Loading project data...</p>
+              </div>
             </div>
           ) : scanResults ? (
             <div className="h-full flex flex-col">
