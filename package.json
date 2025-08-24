@@ -96,7 +96,16 @@
     "ci": "npm run clean:install && npm run test && npm run build && npm run security",
     "ci:test": "npm run test",
     "ci:build": "npm run build",
-    "ci:deploy": "npm run deploy:production"
+    "ci:deploy": "npm run deploy:production",
+    "supabase:start": "supabase start",
+    "supabase:stop": "supabase stop",
+    "supabase:status": "supabase status",
+    "supabase:functions:serve": "supabase functions serve",
+    "supabase:functions:deploy": "./scripts/deploy-edge-functions.sh",
+    "supabase:functions:test": "./scripts/test-edge-functions/test-all-functions.sh",
+    "supabase:db:reset": "supabase db reset",
+    "supabase:db:push": "supabase db push",
+    "supabase:setup": "supabase start && psql \"postgresql://postgres:postgres@127.0.0.1:54325/postgres\" -f supabase-manual-setup.sql && psql \"postgresql://postgres:postgres@127.0.0.1:54325/postgres\" -f supabase/migrations/008_edge_functions_tables.sql"
   },
   "keywords": [
     "code-analysis",

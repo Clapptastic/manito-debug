@@ -45,9 +45,12 @@ class VaultService {
       
       console.log('✅ Vault Service: Environment variables loaded successfully');
 
-      // Create Supabase client for regular operations
+      // Create Supabase client for regular operations - use production URL
+      if (!process.env.SUPABASE_URL) {
+        throw new Error('SUPABASE_URL environment variable is required for vault service');
+      }
       this.supabase = createClient(
-        process.env.SUPABASE_URL || 'http://127.0.0.1:54321',
+        process.env.SUPABASE_URL,
         process.env.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0'
       );
 

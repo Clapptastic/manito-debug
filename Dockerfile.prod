@@ -27,8 +27,7 @@ RUN npm install --ignore-scripts
 # Copy remaining source code
 COPY . .
 
-# Build client
-RUN cd client && npm run build
+# Note: Using pre-built client files to avoid npm optional dependency bug in Docker ARM builds
 
 # Production stage
 FROM node:20-alpine AS production
@@ -50,7 +49,7 @@ COPY core/package*.json ./core/
 
 # Copy built client and server code
 COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/client/dist ./client/dist
+COPY client/dist ./client/dist
 COPY --from=builder /app/server ./server
 COPY --from=builder /app/core ./core
 COPY --from=builder /app/scripts ./scripts

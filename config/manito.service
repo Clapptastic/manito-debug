@@ -1,0 +1,50 @@
+# Systemd Service File for Manito
+# Copy this to /etc/systemd/system/manito.service
+# 
+# Commands:
+#   sudo systemctl enable manito    - Enable auto-start on boot
+#   sudo systemctl start manito     - Start the service
+#   sudo systemctl stop manito      - Stop the service
+#   sudo systemctl restart manito   - Restart the service
+#   sudo systemctl status manito    - Check service status
+#   sudo journalctl -u manito -f    - View logs
+
+[Unit]
+Description=Manito AI Code Analysis Platform
+Documentation=https://github.com/yourusername/manito-package
+After=network.target postgresql.service
+Wants=postgresql.service
+
+[Service]
+Type=simple
+User=manito
+Group=manito
+WorkingDirectory=/opt/manito
+Environment=NODE_ENV=production
+Environment=PM2_HOME=/opt/manito/.pm2
+EnvironmentFile=/opt/manito/.env
+ExecStart=/usr/bin/node scripts/process-monitor.js start
+ExecReload=/bin/kill -HUP $MAINPID
+ExecStop=/usr/bin/node scripts/process-monitor.js stop
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=manito
+
+# Security settings
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ReadWritePaths=/opt/manito /tmp /var/log
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+
+# Resource limits
+LimitNOFILE=65536
+LimitNPROC=4096
+
+[Install]
+WantedBy=multi-user.target

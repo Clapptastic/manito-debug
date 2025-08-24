@@ -363,14 +363,14 @@ router.get('/projects/:projectId/dependencies', optionalAuth, async (req, res) =
     const { maxDepth = '3' } = req.query;
 
     const dependencies = await graphStore.getDependencyGraph(
-      parseInt(projectId),
+      projectId, // Keep as UUID string
       parseInt(maxDepth)
     );
 
     res.json({
       success: true,
       data: {
-        projectId: parseInt(projectId),
+        projectId: projectId,
         dependencies,
         count: dependencies.length,
         maxDepth: parseInt(maxDepth)

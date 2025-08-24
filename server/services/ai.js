@@ -529,6 +529,20 @@ Please provide clear, actionable advice with specific examples when possible.`;
     }
   }
 
+  // Health check method for monitoring
+  async getHealth() {
+    const providers = Array.from(this.providers.keys());
+    const vaultStatus = this.vaultInitialized ? 'healthy' : 'disabled';
+    
+    return {
+      status: providers.length > 0 ? 'healthy' : 'degraded',
+      providers: providers,
+      vaultInitialized: this.vaultInitialized,
+      vaultStatus: vaultStatus,
+      timestamp: new Date().toISOString()
+    };
+  }
+
   // Cleanup method for graceful shutdown
   async cleanup() {
     try {

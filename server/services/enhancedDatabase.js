@@ -47,9 +47,23 @@ class EnhancedDatabaseService extends EventEmitter {
       this.supabase = new SupabaseService();
       this.supabaseConnected = true;
       this.logger.info('Using Supabase as primary database');
+      
+      // Test connection with a simple operation
+      await this.testSupabaseConnection();
+      
+      // Set up periodic reconnection checks for Supabase
+      this.setupSupabaseMonitoring();
       return;
     } catch (error) {
-      this.logger.warn('Supabase connection failed, trying PostgreSQL', { error: error.message });
+      this.logger.warn('Supabase connection failed, trying PostgreSQL', { 
+        error: error.message,
+        fallbackMode: 'PostgreSQL'
+      });
+      this.supabase = null;
+      this.supabaseConnected = false;
+      
+      // Still set up monitoring in case Supabase becomes available later
+      this.setupSupabaseMonitoring();
     }
 
     // Fallback to PostgreSQL
@@ -147,6 +161,40 @@ class EnhancedDatabaseService extends EventEmitter {
     this.mockData.set('metrics', []);
     this.mockData.set('search_logs', []);
     this.mockData.set('websocket_connections', []);
+  }
+
+  // Test Supabase connection to ensure it's working
+  async testSupabaseConnection() {
+    if (!this.supabase) {
+      throw new Error('Supabase not initialized');
+    }
+    
+    try {
+      // Try a simple connection test with timeout
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Connection test timeout')), 10000)
+      );
+      
+      const testPromise = this.supabase.testConnection();
+      const { data, error } = await Promise.race([testPromise, timeoutPromise]);
+      
+      if (error) {
+        throw new Error(`Supabase test failed: ${error.message}`);
+      }
+      
+      this.logger.info('Supabase connection test successful', { 
+        timestamp: new Date().toISOString(),
+        testResult: data 
+      });
+      
+    } catch (error) {
+      this.logger.error('Supabase connection test failed', { 
+        error: error.message,
+        stack: error.stack,
+        timestamp: new Date().toISOString()
+      });
+      throw error;
+    }
   }
 
   // Security validation methods
@@ -324,9 +372,14 @@ class EnhancedDatabaseService extends EventEmitter {
     }
   }
 
-  // Supabase query wrapper
+  // Supabase query wrapper with enhanced error handling
   async querySupabase(text, params = [], options = {}) {
     try {
+      // Check if Supabase client is still available
+      if (!this.supabase) {
+        throw new Error('Supabase client not initialized');
+      }
+
       // Use Supabase client methods for better compatibility
       const result = await this.supabase.query(text, params);
       
@@ -339,12 +392,23 @@ class EnhancedDatabaseService extends EventEmitter {
     } catch (error) {
       this.logger.error('Supabase query failed', { 
         error: error.message,
-        query: text.substring(0, 100) + '...'
+        query: text.substring(0, 100) + '...',
+        errorCode: error.code,
+        supabaseConnected: this.supabaseConnected
       });
       
-      // Fallback to mock mode if Supabase fails
+      // Check if it's a connection issue that might recover
+      if (this.isSupabaseRetryableError(error)) {
+        this.logger.warn('Supabase connection issue detected - will retry on next request');
+        // Don't disable Supabase for retryable errors
+      } else {
+        // Disable Supabase for non-retryable errors
+        this.logger.warn('Disabling Supabase due to non-retryable error');
+        this.supabaseConnected = false;
+      }
+      
+      // Always fallback to mock mode for failed queries
       this.logger.warn('Falling back to mock mode due to Supabase error');
-      this.supabaseConnected = false;
       return this.mockQuery(text, params);
     }
   }
@@ -881,6 +945,53 @@ class EnhancedDatabaseService extends EventEmitter {
     return new Promise(resolve => setTimeout(resolve, ms));
   }
 
+  // Check if Supabase error is retryable
+  isSupabaseRetryableError(error) {
+    const retryablePatterns = [
+      /network/i,
+      /timeout/i,
+      /connection/i,
+      /503/,  // Service unavailable
+      /502/,  // Bad gateway
+      /504/,  // Gateway timeout
+      /ECONNRESET/,
+      /ENOTFOUND/,
+      /ETIMEDOUT/
+    ];
+    
+    const errorMessage = error.message || '';
+    const errorCode = error.code || '';
+    
+    return retryablePatterns.some(pattern => 
+      pattern.test(errorMessage) || pattern.test(errorCode)
+    );
+  }
+
+  // Periodically test Supabase connection and re-enable if recovered
+  async attemptSupabaseReconnection() {
+    if (this.supabaseConnected || !this.supabase) {
+      return;
+    }
+    
+    try {
+      this.logger.info('Attempting to reconnect to Supabase...');
+      await this.testSupabaseConnection();
+      
+      // If successful, re-enable Supabase
+      this.supabaseConnected = true;
+      this.logger.info('Supabase connection restored successfully');
+      
+      // Emit event for monitoring
+      this.emit('supabaseReconnected');
+      
+    } catch (error) {
+      this.logger.warn('Supabase reconnection failed', { 
+        error: error.message,
+        nextAttemptIn: '5 minutes'
+      });
+    }
+  }
+
   // Mock methods for when database is not available
   mockQuery(text, params = []) {
     this.logger.warn('Database unavailable - using mock mode', { 
@@ -1025,12 +1136,38 @@ class EnhancedDatabaseService extends EventEmitter {
     return deleted;
   }
 
+  // Set up periodic monitoring for Supabase
+  setupSupabaseMonitoring() {
+    // Check Supabase connection every 5 minutes
+    this.supabaseMonitorInterval = setInterval(async () => {
+      await this.attemptSupabaseReconnection();
+    }, 5 * 60 * 1000);
+    
+    this.logger.debug('Supabase monitoring enabled - checking every 5 minutes');
+  }
+
   // Graceful shutdown
   async close() {
     this.logger.info('Shutting down enhanced database service...');
     
+    // Clear monitoring intervals
+    if (this.supabaseMonitorInterval) {
+      clearInterval(this.supabaseMonitorInterval);
+      this.logger.debug('Supabase monitoring stopped');
+    }
+    
     // Clear cache
     this.clearCache();
+    
+    // Close Supabase connection if available
+    if (this.supabase && typeof this.supabase.close === 'function') {
+      try {
+        await this.supabase.close();
+        this.logger.info('Supabase connection closed');
+      } catch (error) {
+        this.logger.warn('Error closing Supabase connection', { error: error.message });
+      }
+    }
     
     // Close pool
     if (this.pool) {
