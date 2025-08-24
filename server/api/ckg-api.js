@@ -362,10 +362,89 @@ router.get('/projects/:projectId/dependencies', optionalAuth, async (req, res) =
     const { projectId } = req.params;
     const { maxDepth = '3' } = req.query;
 
-    const dependencies = await graphStore.getDependencyGraph(
-      projectId, // Keep as UUID string
-      parseInt(maxDepth)
-    );
+    // Try to connect to Supabase directly for dependency graph queries
+    let dependencies = [];
+    
+    try {
+      // Create a direct connection to Supabase for this query
+      const { createClient } = await import('@supabase/supabase-js');
+      const supabaseUrl = 'http://127.0.0.1:54321';
+      const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU';
+      
+      const supabase = createClient(supabaseUrl, supabaseKey, {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false
+        }
+      });
+
+      // Call the get_dependency_graph function directly
+      const { data, error } = await supabase.rpc('get_dependency_graph', {
+        project_filter: projectId,
+        max_depth: parseInt(maxDepth)
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      dependencies = data || [];
+      logger.info('Successfully retrieved dependency graph from Supabase', { 
+        projectId, 
+        dependencyCount: dependencies.length 
+      });
+
+    } catch (supabaseError) {
+      logger.warn('Supabase connection failed, trying local database', { 
+        error: supabaseError.message 
+      });
+      
+      // Try local database with integer project ID
+      try {
+        const integerProjectId = parseInt(projectId);
+        if (!isNaN(integerProjectId)) {
+          // Use the local database function for integer project IDs
+          const { Pool } = await import('pg');
+          const pool = new Pool({
+            user: 'manito_dev',
+            password: 'manito_dev_password',
+            host: 'localhost',
+            database: 'manito_dev',
+            port: 5432,
+            schema: 'manito_dev'
+          });
+
+          const result = await pool.query(
+            'SELECT * FROM manito_dev.get_dependency_graph($1, $2)',
+            [integerProjectId, parseInt(maxDepth)]
+          );
+
+          dependencies = result.rows || [];
+          logger.info('Successfully retrieved dependency graph from local database', { 
+            projectId: integerProjectId, 
+            dependencyCount: dependencies.length 
+          });
+
+          await pool.end();
+        } else {
+          // Fallback to graph store
+          dependencies = await graphStore.getDependencyGraph(
+            projectId,
+            parseInt(maxDepth)
+          );
+        }
+      } catch (localDbError) {
+        logger.warn('Local database failed, falling back to graph store', { 
+          error: localDbError.message 
+        });
+        
+        // Final fallback to graph store
+        dependencies = await graphStore.getDependencyGraph(
+          projectId,
+          parseInt(maxDepth)
+        );
+      }
+    }
 
     res.json({
       success: true,
